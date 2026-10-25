@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
@@ -35,6 +35,9 @@ namespace SignalNoAr
             InitializeTrayIcon();
             StartIpcServer();
 
+            // Hook clean exit on update restart
+            UpdateService.OnBeforeRestart = () => ExitApplication();
+
             // Initialize vMix Monitor
             VmixWatcher = new VmixWatcher(
                 () => _config.VmixEnabled,
@@ -59,7 +62,7 @@ namespace SignalNoAr
                 }
             }, null);
 
-            // Automatic background update check on startup
+            // Automatic background update check on startup (waits 6s)
             _ = Task.Run(async () =>
             {
                 await Task.Delay(6000);
@@ -115,6 +118,19 @@ namespace SignalNoAr
             };
 
             _notifyIcon.DoubleClick += (s, e) => ShowSettings();
+        }
+
+        private void SetTrayText(string text)
+        {
+            try
+            {
+                if (text.Length > 63)
+                {
+                    text = text.Substring(0, 60) + "...";
+                }
+                _notifyIcon.Text = text;
+            }
+            catch { }
         }
 
         private void OnDisplaySettingsChanged(object? sender, EventArgs e)
@@ -291,13 +307,13 @@ namespace SignalNoAr
         {
             if (IsTemporarilyDisabled)
             {
-                _notifyIcon.Text = "Signal No Ar - (Pausado nesta sessão)";
+                SetTrayText("Signal No Ar - (Pausado nesta sessão)");
                 _menuItemToggle.Text = "▶️ Reativar Agora";
             }
             else
             {
                 string dev = string.IsNullOrEmpty(_config.SelectedMonitorDeviceName) ? "Display" : _config.SelectedMonitorDeviceName;
-                _notifyIcon.Text = $"Signal No Ar - Ativo ({dev})";
+                SetTrayText($"Signal No Ar - Ativo ({dev})");
                 _menuItemToggle.Text = "⏸️ Pausar nesta sessão";
             }
         }
@@ -357,15 +373,15 @@ namespace SignalNoAr
             {
                 if (state.IsStreaming)
                 {
-                    _notifyIcon.Text = "Signal No Ar — 🔴 AO VIVO (vMix)";
+                    SetTrayText("Signal No Ar — 🔴 AO VIVO (vMix)");
                 }
                 else if (state.IsConnected)
                 {
-                    _notifyIcon.Text = "Signal No Ar — 🟡 Standby (vMix)";
+                    SetTrayText("Signal No Ar — 🟡 Standby (vMix)");
                 }
                 else
                 {
-                    _notifyIcon.Text = "Signal No Ar — Ativo";
+                    SetTrayText("Signal No Ar — Ativo");
                 }
 
                 if (_displayForm != null && !_displayForm.IsDisposed)

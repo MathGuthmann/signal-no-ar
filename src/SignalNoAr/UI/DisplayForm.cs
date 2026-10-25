@@ -29,6 +29,7 @@ namespace SignalNoAr.UI
         private WebView2? _webView;
         private Panel? _loadingPanel;
         private Panel? _topControlBar;
+        private Panel? _topHoverTrigger;
         private Label? _lblStatus;
         private Label? _lblSubStatus;
         private PictureBox? _picLogo;
@@ -279,6 +280,16 @@ namespace SignalNoAr.UI
 
         private void InitializeTopControlBar()
         {
+            _topHoverTrigger = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 4,
+                BackColor = Color.Transparent
+            };
+            _topHoverTrigger.MouseEnter += (s, e) => ShowTopControlBar();
+            Controls.Add(_topHoverTrigger);
+            _topHoverTrigger.BringToFront();
+
             _topControlBar = new Panel
             {
                 Height = 42,
@@ -321,7 +332,26 @@ namespace SignalNoAr.UI
 
             _topControlBar.Controls.Add(btnExitFs);
             _topControlBar.Controls.Add(btnOpenSettings);
+            _topControlBar.MouseLeave += (s, e) =>
+            {
+                Point clientPos = PointToClient(Cursor.Position);
+                if (clientPos.Y > _topControlBar.Height + 5 || clientPos.Y < 0)
+                {
+                    _topControlBar.Visible = false;
+                }
+            };
+
             Controls.Add(_topControlBar);
+        }
+
+        private void ShowTopControlBar()
+        {
+            if (!_isWindowed && _topControlBar != null)
+            {
+                _topControlBar.Location = new Point((Width - _topControlBar.Width) / 2, 0);
+                _topControlBar.Visible = true;
+                _topControlBar.BringToFront();
+            }
         }
 
         private async void InitializeWebViewAsync()
@@ -339,11 +369,9 @@ namespace SignalNoAr.UI
                     };
                     _webView.MouseMove += (s, e) =>
                     {
-                        if (!_isWindowed && e.Y <= 25 && _topControlBar != null)
+                        if (!_isWindowed && e.Y <= 15)
                         {
-                            _topControlBar.Location = new Point((Width - _topControlBar.Width) / 2, 0);
-                            _topControlBar.Visible = true;
-                            _topControlBar.BringToFront();
+                            ShowTopControlBar();
                         }
                         else if (!_isWindowed && e.Y > 60 && _topControlBar != null && _topControlBar.Visible)
                         {
@@ -353,6 +381,7 @@ namespace SignalNoAr.UI
 
                     Controls.Add(_webView);
                     _loadingPanel?.BringToFront();
+                    _topHoverTrigger?.BringToFront();
                 }
 
                 string profilePath = Path.Combine(
@@ -429,6 +458,45 @@ namespace SignalNoAr.UI
                     _retryTimer?.Start();
                 }
             }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            // ESC or Ctrl+Q -> Safe exit fullscreen
+            if (keyData == Keys.Escape || keyData == (Keys.Control | Keys.Q))
+            {
+                SafeExitFullscreen();
+                return true;
+            }
+
+            // F11 -> Toggle windowed mode
+            if (keyData == Keys.F11)
+            {
+                ToggleWindowedMode();
+                return true;
+            }
+
+            // Ctrl+Shift+S -> Open Settings
+            if (keyData == (Keys.Control | Keys.Shift | Keys.S))
+            {
+                _appContext.ShowSettings();
+                return true;
+            }
+
+            // Block Alt+F4 and Ctrl+W
+            if (keyData == (Keys.Alt | Keys.F4) || keyData == (Keys.Control | Keys.W) || keyData == (Keys.Control | Keys.F4))
+            {
+                return true;
+            }
+
+            // F5 or Ctrl+R -> Reload
+            if (keyData == Keys.F5 || keyData == (Keys.Control | Keys.R))
+            {
+                Reload();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private async Task InstallWebView2RuntimeAsync()
@@ -553,6 +621,10 @@ namespace SignalNoAr.UI
                 if (_btnManualRetry != null) _btnManualRetry.Visible = false;
                 if (_loadingPanel != null) _loadingPanel.Visible = false;
                 if (_webView != null) _webView.Visible = true;
+
+                // Push current vMix status immediately to newly loaded page
+                var vmixState = _appContext.VmixWatcher.CurrentState;
+                NotifyVmixStatus(vmixState.IsStreaming, vmixState.IsRecording, vmixState.ActiveInput);
             }
             else
             {
@@ -701,6 +773,7 @@ namespace SignalNoAr.UI
                 _webView?.Dispose();
                 _picLogo?.Dispose();
                 _topControlBar?.Dispose();
+                _topHoverTrigger?.Dispose();
             }
 
             base.Dispose(disposing);

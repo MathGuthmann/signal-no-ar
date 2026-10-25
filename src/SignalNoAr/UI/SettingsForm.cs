@@ -519,6 +519,11 @@ namespace SignalNoAr.UI
                 Height = 28,
                 Checked = _config.VmixEnabled
             };
+            _chkVmixEnabled.CheckedChanged += (s, e) =>
+            {
+                if (_txtVmixUrl != null) _txtVmixUrl.Enabled = _chkVmixEnabled.Checked;
+                if (_btnTestVmix != null) _btnTestVmix.Enabled = _chkVmixEnabled.Checked;
+            };
             pnlVmixCard.Controls.Add(_chkVmixEnabled);
 
             var pnlVmixUrlRow = new Panel { Dock = DockStyle.Top, Height = 34 };
@@ -718,6 +723,16 @@ namespace SignalNoAr.UI
                 _cbMonitors.SelectedIndex = Math.Clamp(defaultIndex, 0, _cbMonitors.Items.Count - 1);
             }
 
+            if (_txtUrl != null) _txtUrl.Text = _config.Url;
+            if (_chkAutoStart != null) _chkAutoStart.Checked = _config.AutoStart;
+            if (_chkWindowedOnSingle != null) _chkWindowedOnSingle.Checked = _config.WindowedPreviewOnSingleMonitor;
+            if (_chkVmixEnabled != null)
+            {
+                _chkVmixEnabled.Checked = _config.VmixEnabled;
+                if (_txtVmixUrl != null) _txtVmixUrl.Enabled = _config.VmixEnabled;
+                if (_btnTestVmix != null) _btnTestVmix.Enabled = _config.VmixEnabled;
+            }
+            if (_txtVmixUrl != null) _txtVmixUrl.Text = _config.VmixUrl;
             if (_chkAutoCheckUpdates != null)
             {
                 _chkAutoCheckUpdates.Checked = _config.AutoCheckUpdates;

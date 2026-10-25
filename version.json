@@ -1,8 +1,8 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "name": "Signal No Ar",
   "publishedAt": "2026-10-25",
-  "releaseNotes": "Oculta a tela cheia do Alt+Tab para não atrapalhar a alternância de janelas no vMix e transmissão.",
+  "releaseNotes": "Refinamentos de estabilidade: atalhos com prioridade máxima (ProcessCmdKey), barra de controle por aproximação no topo, proteção contra limites de texto na bandeja e sincronização imediata de status do vMix.",
   "downloadUrl": "https://github.com/MathGuthmann/signal-no-ar/releases/download/latest/Instalador_Signal_No_Ar.exe",
   "mandatory": false
 }
