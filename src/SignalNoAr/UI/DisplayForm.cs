@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
@@ -20,6 +21,7 @@ namespace SignalNoAr.UI
         private Label? _lblSubStatus;
         private PictureBox? _picLogo;
         private Button? _btnManualRetry;
+        private Button? _btnInstallWebView2;
         private System.Windows.Forms.Timer? _retryTimer;
         private System.Windows.Forms.Timer? _watchdogTimer;
         private Screen _targetScreen;
@@ -162,6 +164,22 @@ namespace SignalNoAr.UI
             _btnManualRetry.Click += (s, e) => NavigateToUrl();
             centerBox.Controls.Add(_btnManualRetry);
 
+            _btnInstallWebView2 = new Button
+            {
+                Text = "📥 Baixar e Instalar WebView2 Runtime",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Size = new Size(290, 36),
+                Location = new Point((centerBox.Width - 290) / 2, 168),
+                BackColor = Color.FromArgb(40, 160, 80),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Visible = false
+            };
+            _btnInstallWebView2.FlatAppearance.BorderSize = 0;
+            _btnInstallWebView2.Click += async (s, e) => await InstallWebView2RuntimeAsync();
+            centerBox.Controls.Add(_btnInstallWebView2);
+
             var lblEscHint = new Label
             {
                 Text = "💡 Pressione [ESC] para sair da tela cheia • [F11] alternar janela",
@@ -270,29 +288,34 @@ namespace SignalNoAr.UI
 
         private async void InitializeWebViewAsync()
         {
+            _retryTimer?.Stop();
+
             try
             {
-                _webView = new WebView2
+                if (_webView == null)
                 {
-                    Dock = DockStyle.Fill,
-                    Visible = false
-                };
-                _webView.MouseMove += (s, e) =>
-                {
-                    if (!_isWindowed && e.Y <= 25 && _topControlBar != null)
+                    _webView = new WebView2
                     {
-                        _topControlBar.Location = new Point((Width - _topControlBar.Width) / 2, 0);
-                        _topControlBar.Visible = true;
-                        _topControlBar.BringToFront();
-                    }
-                    else if (!_isWindowed && e.Y > 60 && _topControlBar != null && _topControlBar.Visible)
+                        Dock = DockStyle.Fill,
+                        Visible = false
+                    };
+                    _webView.MouseMove += (s, e) =>
                     {
-                        _topControlBar.Visible = false;
-                    }
-                };
+                        if (!_isWindowed && e.Y <= 25 && _topControlBar != null)
+                        {
+                            _topControlBar.Location = new Point((Width - _topControlBar.Width) / 2, 0);
+                            _topControlBar.Visible = true;
+                            _topControlBar.BringToFront();
+                        }
+                        else if (!_isWindowed && e.Y > 60 && _topControlBar != null && _topControlBar.Visible)
+                        {
+                            _topControlBar.Visible = false;
+                        }
+                    };
 
-                Controls.Add(_webView);
-                _loadingPanel?.BringToFront();
+                    Controls.Add(_webView);
+                    _loadingPanel?.BringToFront();
+                }
 
                 string profilePath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -300,11 +323,30 @@ namespace SignalNoAr.UI
                     "WebViewProfile"
                 );
 
-                var options = new CoreWebView2EnvironmentOptions(
-                    "--disable-background-networking --disable-sync --disable-features=TranslateUI,InterestFeedContentSuggestions --disable-extensions --enable-gpu-rasterization --enable-zero-copy"
-                );
+                CoreWebView2Environment? env = null;
 
-                var env = await CoreWebView2Environment.CreateAsync(null, profilePath, options);
+                // 1. Tenta inicializar com opções otimizadas
+                try
+                {
+                    var options = new CoreWebView2EnvironmentOptions(
+                        "--disable-background-networking --disable-sync --disable-features=TranslateUI,InterestFeedContentSuggestions --disable-extensions"
+                    );
+                    env = await CoreWebView2Environment.CreateAsync(null, profilePath, options);
+                }
+                catch
+                {
+                    // 2. Fallback sem opções customizadas
+                    try
+                    {
+                        env = await CoreWebView2Environment.CreateAsync(null, profilePath, null);
+                    }
+                    catch
+                    {
+                        // 3. Fallback para ambiente padrão
+                        env = null;
+                    }
+                }
+
                 await _webView.EnsureCoreWebView2Async(env);
 
                 if (_webView.CoreWebView2 != null)
@@ -318,13 +360,100 @@ namespace SignalNoAr.UI
                     _webView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
                     _webView.CoreWebView2.ProcessFailed += CoreWebView2_ProcessFailed;
 
+                    if (_btnInstallWebView2 != null) _btnInstallWebView2.Visible = false;
                     NavigateToUrl();
                 }
             }
             catch (Exception ex)
             {
-                UpdateStatus("Erro ao iniciar WebView2", ex.Message, isError: true);
-                _retryTimer?.Start();
+                bool isMissingRuntime = ex is FileNotFoundException ||
+                                        ex.GetType().Name.Contains("WebView2RuntimeNotFound") ||
+                                        ex.Message.Contains("WebView2") ||
+                                        ex.Message.Contains("0x80070002") ||
+                                        ex.Message.Contains("não encontrado") ||
+                                        ex.Message.Contains("not found");
+
+                if (isMissingRuntime)
+                {
+                    UpdateStatus(
+                        "Componente WebView2 Necessário",
+                        "O computador precisa do Microsoft Edge WebView2 Runtime para exibir a página.",
+                        isError: true
+                    );
+
+                    if (_btnInstallWebView2 != null)
+                    {
+                        _btnInstallWebView2.Visible = true;
+                    }
+                }
+                else
+                {
+                    UpdateStatus("Erro ao iniciar WebView2", ex.Message, isError: true);
+                    _retryCount++;
+                    _countdown = 5;
+                    _retryTimer?.Start();
+                }
+            }
+        }
+
+        private async Task InstallWebView2RuntimeAsync()
+        {
+            if (_btnInstallWebView2 != null)
+            {
+                _btnInstallWebView2.Enabled = false;
+                _btnInstallWebView2.Text = "⏳ Baixando instalador da Microsoft...";
+            }
+
+            UpdateStatus("Baixando WebView2 Runtime...", "Aguarde o download do instalador oficial da Microsoft...", isError: false);
+
+            try
+            {
+                string tempInstaller = Path.Combine(Path.GetTempPath(), "MicrosoftEdgeWebview2Setup.exe");
+                using (var client = new System.Net.Http.HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(30);
+                    var bytes = await client.GetByteArrayAsync("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
+                    await File.WriteAllBytesAsync(tempInstaller, bytes);
+                }
+
+                UpdateStatus("Instalando WebView2 Runtime...", "Executando instalação silenciosa da Microsoft...", isError: false);
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = tempInstaller,
+                    Arguments = "/silent /install",
+                    UseShellExecute = true
+                };
+
+                var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    await proc.WaitForExitAsync();
+                }
+
+                UpdateStatus("WebView2 instalado!", "Inicializando o sinal no ar...", isError: false);
+                await Task.Delay(1500);
+
+                if (_btnInstallWebView2 != null) _btnInstallWebView2.Visible = false;
+                InitializeWebViewAsync();
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus("Falha na instalação automática", $"Erro: {ex.Message}. Clique para abrir o download manual.", isError: true);
+                if (_btnInstallWebView2 != null)
+                {
+                    _btnInstallWebView2.Enabled = true;
+                    _btnInstallWebView2.Text = "🌐 Baixar Manualmente no Navegador";
+                    _btnInstallWebView2.Click -= async (s, e) => await InstallWebView2RuntimeAsync();
+                    _btnInstallWebView2.Click += (s, e) =>
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "https://go.microsoft.com/fwlink/p/?LinkId=2124703",
+                            UseShellExecute = true
+                        });
+                    };
+                }
             }
         }
 
@@ -432,7 +561,14 @@ namespace SignalNoAr.UI
                 if (_countdown <= 0)
                 {
                     _countdown = 3;
-                    NavigateToUrl();
+                    if (_webView?.CoreWebView2 != null)
+                    {
+                        NavigateToUrl();
+                    }
+                    else
+                    {
+                        InitializeWebViewAsync();
+                    }
                 }
             }
         }

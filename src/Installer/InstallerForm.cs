@@ -397,6 +397,9 @@ namespace Installer
             UpdateStatus(_isUpdate ? "Atualizando arquivos do aplicativo..." : "Extraindo arquivos do aplicativo...");
             ExtractPayload();
 
+            UpdateStatus("Verificando componente Microsoft WebView2...");
+            EnsureWebView2Installed();
+
             UpdateStatus("Configurando inicialização automática...");
             ConfigureStartupRegistry();
 
@@ -478,6 +481,69 @@ namespace Installer
                     }
                 }
             }
+        }
+
+        private void EnsureWebView2Installed()
+        {
+            if (!IsWebView2Installed())
+            {
+                UpdateStatus("Instalando componente Microsoft WebView2 Runtime...");
+                try
+                {
+                    string tempInstaller = Path.Combine(Path.GetTempPath(), "MicrosoftEdgeWebview2Setup.exe");
+                    using (var client = new System.Net.Http.HttpClient())
+                    {
+                        client.Timeout = TimeSpan.FromSeconds(30);
+                        var task = client.GetByteArrayAsync("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
+                        task.Wait();
+                        File.WriteAllBytes(tempInstaller, task.Result);
+                    }
+
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = tempInstaller,
+                        Arguments = "/silent /install",
+                        UseShellExecute = true
+                    };
+                    var proc = Process.Start(psi);
+                    proc?.WaitForExit(60000);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to auto-install WebView2: {ex.Message}");
+                }
+            }
+        }
+
+        private static bool IsWebView2Installed()
+        {
+            try
+            {
+                string[] keys = new[]
+                {
+                    @"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-4D2A-4265-B2E0-9C0208376413}",
+                    @"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-4D2A-4265-B2E0-9C0208376413}"
+                };
+
+                foreach (var subKey in keys)
+                {
+                    using var key = Registry.LocalMachine.OpenSubKey(subKey);
+                    if (key != null)
+                    {
+                        var pv = key.GetValue("pv") as string;
+                        if (!string.IsNullOrEmpty(pv) && pv != "0.0.0.0") return true;
+                    }
+                }
+
+                using var cuKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-4D2A-4265-B2E0-9C0208376413}");
+                if (cuKey != null)
+                {
+                    var pv = cuKey.GetValue("pv") as string;
+                    if (!string.IsNullOrEmpty(pv) && pv != "0.0.0.0") return true;
+                }
+            }
+            catch { }
+            return false;
         }
 
         private void ConfigureStartupRegistry()
