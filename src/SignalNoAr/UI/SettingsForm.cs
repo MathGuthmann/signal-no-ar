@@ -19,6 +19,10 @@ namespace SignalNoAr.UI
         private CheckBox _chkAutoStart = null!;
         private CheckBox _chkLaunchImmediately = null!;
         private CheckBox _chkWindowedOnSingle = null!;
+        private CheckBox _chkVmixEnabled = null!;
+        private TextBox _txtVmixUrl = null!;
+        private Label _lblVmixStatusBadge = null!;
+        private Button _btnTestVmix = null!;
         private Button _btnTemporaryToggle = null!;
         private Label _lblStatusBadge = null!;
         private Label _lblStatusDesc = null!;
@@ -460,7 +464,88 @@ namespace SignalNoAr.UI
             _centerContainer.Controls.Add(pnlOptionsCard);
             currentY += pnlOptionsCard.Height + 14;
 
-            // 6. Temporary Pause Notice Card
+            // 6. vMix Integration Card
+            var pnlVmixCard = new Panel
+            {
+                Location = new Point(0, currentY),
+                Width = _centerContainer.Width,
+                Height = 158,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                BackColor = Color.FromArgb(24, 22, 34),
+                Padding = new Padding(18, 14, 18, 14)
+            };
+
+            var lblVmixSection = new Label
+            {
+                Text = "🎬 INTEGRAÇÃO COM VMIX (DETECÇÃO DE LIVE):",
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(240, 235, 255),
+                Dock = DockStyle.Top,
+                Height = 25
+            };
+            pnlVmixCard.Controls.Add(lblVmixSection);
+
+            _chkVmixEnabled = new CheckBox
+            {
+                Text = "Habilitar monitoramento do vMix (detecta transmissão ao vivo)",
+                Font = new Font("Segoe UI", 9.8f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(235, 230, 250),
+                Dock = DockStyle.Top,
+                Height = 28,
+                Checked = _config.VmixEnabled
+            };
+            pnlVmixCard.Controls.Add(_chkVmixEnabled);
+
+            var pnlVmixUrlRow = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 36,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 2, 0, 0)
+            };
+
+            _btnTestVmix = new Button
+            {
+                Text = "Testar vMix",
+                Dock = DockStyle.Right,
+                Width = 130,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                BackColor = Color.FromArgb(60, 50, 90),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            _btnTestVmix.FlatAppearance.BorderColor = Color.FromArgb(110, 90, 160);
+            _btnTestVmix.Click += async (s, e) => await TestVmixConnectionAsync();
+            pnlVmixUrlRow.Controls.Add(_btnTestVmix);
+
+            _txtVmixUrl = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Height = 32,
+                BackColor = Color.FromArgb(34, 30, 48),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10.5f),
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = _config.VmixUrl
+            };
+            pnlVmixUrlRow.Controls.Add(_txtVmixUrl);
+            pnlVmixCard.Controls.Add(pnlVmixUrlRow);
+
+            _lblVmixStatusBadge = new Label
+            {
+                Text = "Status: Aguardando verificação...",
+                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(170, 165, 195),
+                Dock = DockStyle.Top,
+                Height = 26
+            };
+            pnlVmixCard.Controls.Add(_lblVmixStatusBadge);
+
+            _centerContainer.Controls.Add(pnlVmixCard);
+            currentY += pnlVmixCard.Height + 14;
+
+            // 7. Temporary Pause Notice Card
             var pnlNotice = new Panel
             {
                 Location = new Point(0, currentY),
@@ -550,9 +635,51 @@ namespace SignalNoAr.UI
             {
                 _chkWindowedOnSingle.Checked = _config.WindowedPreviewOnSingleMonitor;
             }
+            if (_chkVmixEnabled != null)
+            {
+                _chkVmixEnabled.Checked = _config.VmixEnabled;
+            }
+            if (_txtVmixUrl != null)
+            {
+                _txtVmixUrl.Text = string.IsNullOrEmpty(_config.VmixUrl) ? "http://localhost:8088/api" : _config.VmixUrl;
+            }
 
             UpdateSelectedMonitorDetails();
             UpdateStatusUI();
+            _ = TestVmixConnectionAsync();
+        }
+
+        private async Task TestVmixConnectionAsync()
+        {
+            if (_lblVmixStatusBadge == null || _btnTestVmix == null) return;
+
+            _btnTestVmix.Enabled = false;
+            _lblVmixStatusBadge.Text = "Status: ⏳ Verificando API do vMix...";
+            _lblVmixStatusBadge.ForeColor = Color.FromArgb(255, 200, 80);
+
+            string url = _txtVmixUrl?.Text?.Trim() ?? _config.VmixUrl;
+            var state = await _appContext.VmixWatcher.CheckNowAsync(url);
+
+            if (state.IsConnected)
+            {
+                if (state.IsStreaming)
+                {
+                    _lblVmixStatusBadge.Text = $"Status: 🔴 vMix CONECTADO (v{state.Version}) — AO VIVO / STREAMING! (PGM: Entrada {state.ActiveInput})";
+                    _lblVmixStatusBadge.ForeColor = Color.FromArgb(255, 80, 80);
+                }
+                else
+                {
+                    _lblVmixStatusBadge.Text = $"Status: 🟡 vMix CONECTADO (v{state.Version}) — Standby / Offline (PGM: Entrada {state.ActiveInput})";
+                    _lblVmixStatusBadge.ForeColor = Color.FromArgb(255, 210, 80);
+                }
+            }
+            else
+            {
+                _lblVmixStatusBadge.Text = $"Status: ⚪ vMix não respondeu na porta 8088 (vMix fechado ou URL inválida)";
+                _lblVmixStatusBadge.ForeColor = Color.FromArgb(180, 175, 205);
+            }
+
+            _btnTestVmix.Enabled = true;
         }
 
         private void UpdateSelectedMonitorDetails()
@@ -626,6 +753,14 @@ namespace SignalNoAr.UI
             if (_chkWindowedOnSingle != null)
             {
                 _config.WindowedPreviewOnSingleMonitor = _chkWindowedOnSingle.Checked;
+            }
+            if (_chkVmixEnabled != null)
+            {
+                _config.VmixEnabled = _chkVmixEnabled.Checked;
+            }
+            if (_txtVmixUrl != null)
+            {
+                _config.VmixUrl = _txtVmixUrl.Text.Trim();
             }
             _config.IsConfigured = true;
 

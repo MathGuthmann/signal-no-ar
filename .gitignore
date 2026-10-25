@@ -7,6 +7,8 @@ dist/*.exe
 *.exe
 dist/*.pdb
 dist/*.zip
+dist/*.dll
+dist/*.json
 src/Installer/payload.zip
 
 # Visual Studio & IDE files

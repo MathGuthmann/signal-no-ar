@@ -16,6 +16,9 @@ namespace SignalNoAr.Models
         public bool AutoStart { get; set; } = true;
         public bool IsConfigured { get; set; } = false;
         public bool WindowedPreviewOnSingleMonitor { get; set; } = false;
+        public bool VmixEnabled { get; set; } = true;
+        public string VmixUrl { get; set; } = "http://localhost:8088/api";
+        public int VmixPollIntervalSeconds { get; set; } = 1;
 
         private const string RunRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string AppRegistryName = "SignalNoAr";

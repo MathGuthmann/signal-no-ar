@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using SignalNoAr.Models;
+using SignalNoAr.Services;
 using SignalNoAr.UI;
 
 namespace SignalNoAr
@@ -22,6 +23,7 @@ namespace SignalNoAr
         private CancellationTokenSource? _pipeCts;
         private int _lastScreenCount = 0;
 
+        public VmixWatcher VmixWatcher { get; private set; } = null!;
         public bool IsTemporarilyDisabled { get; private set; } = false;
 
         public AppContext(AppConfig config)
@@ -32,6 +34,15 @@ namespace SignalNoAr
 
             InitializeTrayIcon();
             StartIpcServer();
+
+            // Initialize vMix Monitor
+            VmixWatcher = new VmixWatcher(
+                () => _config.VmixEnabled,
+                () => _config.VmixUrl,
+                () => _config.VmixPollIntervalSeconds
+            );
+            VmixWatcher.StateChanged += OnVmixStateChanged;
+            VmixWatcher.Start();
 
             // Listen to monitor plug/unplug events
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -340,11 +351,36 @@ namespace SignalNoAr
             });
         }
 
+        private void OnVmixStateChanged(VmixState state)
+        {
+            _syncContext.Post(_ =>
+            {
+                if (state.IsStreaming)
+                {
+                    _notifyIcon.Text = "Signal No Ar — 🔴 AO VIVO (vMix)";
+                }
+                else if (state.IsConnected)
+                {
+                    _notifyIcon.Text = "Signal No Ar — 🟡 Standby (vMix)";
+                }
+                else
+                {
+                    _notifyIcon.Text = "Signal No Ar — Ativo";
+                }
+
+                if (_displayForm != null && !_displayForm.IsDisposed)
+                {
+                    _displayForm.NotifyVmixStatus(state.IsStreaming, state.IsRecording, state.ActiveInput);
+                }
+            }, null);
+        }
+
         public void ExitApplication()
         {
             Program.IsExplicitExit = true;
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
             _pipeCts?.Cancel();
+            VmixWatcher.Dispose();
 
             if (_displayForm != null && !_displayForm.IsDisposed)
             {

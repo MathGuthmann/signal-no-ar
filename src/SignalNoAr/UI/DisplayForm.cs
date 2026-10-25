@@ -498,6 +498,25 @@ namespace SignalNoAr.UI
             }
         }
 
+        public void NotifyVmixStatus(bool isStreaming, bool isRecording, string activeInput)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => NotifyVmixStatus(isStreaming, isRecording, activeInput)));
+                return;
+            }
+
+            if (_webView?.CoreWebView2 != null)
+            {
+                try
+                {
+                    string script = $"window.postMessage({{ type: 'VMIX_STATUS', isStreaming: {(isStreaming ? "true" : "false")}, isRecording: {(isRecording ? "true" : "false")}, activeInput: '{activeInput}' }}, '*');";
+                    _webView.CoreWebView2.ExecuteScriptAsync(script);
+                }
+                catch { }
+            }
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (!Program.IsExplicitExit)

@@ -18,6 +18,7 @@ namespace Installer
         private Button _btnCancel = null!;
         private CheckBox _chkLaunchSetup = null!;
         private readonly string _installDir;
+        private readonly bool _isUpdate;
         private bool _isFinished = false;
 
         public InstallerForm()
@@ -27,13 +28,15 @@ namespace Installer
                 "SignalNoAr"
             );
 
+            _isUpdate = File.Exists(Path.Combine(_installDir, "SignalNoAr.exe"));
+
             InitializeForm();
             BuildUI();
         }
 
         private void InitializeForm()
         {
-            Text = "Instalador do Signal No Ar";
+            Text = _isUpdate ? "Atualizador do Signal No Ar" : "Instalador do Signal No Ar";
             Size = new Size(680, 670);
             MinimumSize = new Size(650, 640);
             StartPosition = FormStartPosition.CenterScreen;
@@ -87,9 +90,9 @@ namespace Installer
 
             var lblHeaderTitle = new Label
             {
-                Text = "INSTALADOR DO DISPLAY EM TELA CHEIA",
+                Text = _isUpdate ? "ATUALIZAÇÃO DO SIGNAL NO AR" : "INSTALADOR DO DISPLAY EM TELA CHEIA",
                 Font = new Font("Segoe UI", 11.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(255, 120, 0), // Signal Orange
+                ForeColor = _isUpdate ? Color.FromArgb(70, 220, 130) : Color.FromArgb(255, 120, 0), // Green for update, Orange for install
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Top,
                 Height = 28
@@ -97,7 +100,7 @@ namespace Installer
 
             var lblHeaderSub = new Label
             {
-                Text = "Exibição contínua do sinal 'NO AR' com inicialização automática do Windows",
+                Text = _isUpdate ? "Nova versão com leitor do vMix! Seus monitores e configurações serão preservados." : "Exibição contínua do sinal 'NO AR' com inicialização automática do Windows",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(185, 180, 205),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -121,11 +124,11 @@ namespace Installer
 
             _btnInstall = new Button
             {
-                Text = "Instalar Agora",
+                Text = _isUpdate ? "Atualizar Agora" : "Instalar Agora",
                 Dock = DockStyle.Right,
                 Width = 210,
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-                BackColor = Color.FromArgb(255, 110, 0), // Signal Orange
+                BackColor = _isUpdate ? Color.FromArgb(40, 160, 80) : Color.FromArgb(255, 110, 0),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
@@ -193,7 +196,7 @@ namespace Installer
 
             var lblCardTitle = new Label
             {
-                Text = "Recursos que serão configurados no seu sistema:",
+                Text = _isUpdate ? "O que será atualizado no seu sistema:" : "Recursos que serão configurados no seu sistema:",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(245, 240, 255),
                 Dock = DockStyle.Top,
@@ -201,14 +204,23 @@ namespace Installer
             };
             pnlCard.Controls.Add(lblCardTitle);
 
-            string[] features = new[]
-            {
-                "⚡ Inicialização Automática: Inicia sozinho ao ligar ou reiniciar o computador",
-                "📺 Tela Cheia no Monitor Escolhido: Memoriza seu monitor e abre sem bordas",
-                "🛡️ Blindagem Contínua: Protegido contra Alt+F4 e com reconexão automática",
-                "🚫 Oculto da Barra de Tarefas: Não ocupa espaço e não atrapalha seu trabalho",
-                "⚙️ Controle na Bandeja (Relógio): Altere o monitor ou pause temporariamente"
-            };
+            string[] features = _isUpdate
+                ? new[]
+                {
+                    "🚀 Atualização do Sistema: Atualiza o aplicativo com integração vMix e otimizações",
+                    "🎬 Leitor Automático do vMix: Detecta transmissões ao vivo na porta 8088",
+                    "💾 Configurações Preservadas: Seu monitor escolhido continua salvo sem reconfigurar",
+                    "⚡ Reinicialização Suave: Fecha a versão antiga e inicia a nova automaticamente",
+                    "⚙️ Controle na Bandeja: Novo painel com teste de conexão com o vMix"
+                }
+                : new[]
+                {
+                    "⚡ Inicialização Automática: Inicia sozinho ao ligar ou reiniciar o computador",
+                    "📺 Tela Cheia no Monitor Escolhido: Memoriza seu monitor e abre sem bordas",
+                    "🎬 Leitor Automático do vMix: Detecta transmissões ao vivo na porta 8088",
+                    "🛡️ Blindagem Contínua: Protegido contra Alt+F4 e com reconexão automática",
+                    "🚫 Oculto da Barra de Tarefas: Não ocupa espaço e não atrapalha seu trabalho"
+                };
 
             var pnlFeatureList = new Panel
             {
@@ -254,7 +266,9 @@ namespace Installer
             // Launch Setup Checkbox
             _chkLaunchSetup = new CheckBox
             {
-                Text = "Abrir a seleção de monitor logo após concluir a instalação",
+                Text = _isUpdate
+                    ? "Reiniciar o Signal No Ar automaticamente após a atualização"
+                    : "Abrir a seleção de monitor logo após concluir a instalação",
                 Font = new Font("Segoe UI", 10f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(240, 235, 255),
                 Location = new Point(4, currentY),
@@ -281,7 +295,9 @@ namespace Installer
             // Status Label
             _lblStatus = new Label
             {
-                Text = "Pronto para instalar. Clique em 'Instalar Agora' para prosseguir.",
+                Text = _isUpdate
+                    ? "Versão anterior detectada. Clique em 'Atualizar Agora' para prosseguir."
+                    : "Pronto para instalar. Clique em 'Instalar Agora' para prosseguir.",
                 Font = new Font("Segoe UI", 9.8f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(190, 185, 210),
                 Location = new Point(4, currentY),
@@ -307,10 +323,10 @@ namespace Installer
 
                 _progressBar.Style = ProgressBarStyle.Blocks;
                 _progressBar.Value = 100;
-                _lblStatus.Text = "✅ Instalação concluída com sucesso!";
+                _lblStatus.Text = _isUpdate ? "✅ Atualização concluída com sucesso!" : "✅ Instalação concluída com sucesso!";
                 _lblStatus.ForeColor = Color.FromArgb(70, 220, 130);
 
-                _btnInstall.Text = "Concluir e Abrir Tela";
+                _btnInstall.Text = _isUpdate ? "Concluir e Iniciar" : "Concluir e Abrir Tela";
                 _btnInstall.BackColor = Color.FromArgb(40, 160, 80);
                 _btnInstall.Enabled = true;
                 _btnInstall.Click -= BtnInstall_Click;
@@ -347,10 +363,19 @@ namespace Installer
             string targetExe = Path.Combine(_installDir, "SignalNoAr.exe");
             if (_chkLaunchSetup.Checked && File.Exists(targetExe))
             {
+                string configPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "SignalNoAr",
+                    "config.json"
+                );
+
+                bool hasExistingConfig = File.Exists(configPath);
+                string args = (_isUpdate && hasExistingConfig) ? "" : "--setup";
+
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = targetExe,
-                    Arguments = "--setup",
+                    Arguments = args,
                     UseShellExecute = true
                 });
             }
@@ -360,7 +385,7 @@ namespace Installer
 
         private void PerformInstallation()
         {
-            UpdateStatus("Fechando instâncias anteriores...");
+            UpdateStatus(_isUpdate ? "Fechando versão anterior em execução..." : "Fechando instâncias anteriores...");
             KillExistingProcesses();
 
             UpdateStatus("Preparando diretório de instalação...");
@@ -369,7 +394,7 @@ namespace Installer
                 Directory.CreateDirectory(_installDir);
             }
 
-            UpdateStatus("Extraindo arquivos do aplicativo...");
+            UpdateStatus(_isUpdate ? "Atualizando arquivos do aplicativo..." : "Extraindo arquivos do aplicativo...");
             ExtractPayload();
 
             UpdateStatus("Configurando inicialização automática...");
@@ -406,12 +431,15 @@ namespace Installer
                     try
                     {
                         proc.Kill();
-                        proc.WaitForExit(3000);
+                        proc.WaitForExit(4000);
                     }
                     catch { }
                 }
             }
             catch { }
+
+            // Allow operating system to fully release file locks
+            System.Threading.Thread.Sleep(600);
         }
 
         private void ExtractPayload()
@@ -434,7 +462,21 @@ namespace Installer
                     Directory.CreateDirectory(destDir);
                 }
 
-                entry.ExtractToFile(destPath, overwrite: true);
+                // Retry loop in case a file is momentarily locked by antivirus or ending process
+                int retries = 4;
+                while (retries > 0)
+                {
+                    try
+                    {
+                        entry.ExtractToFile(destPath, overwrite: true);
+                        break;
+                    }
+                    catch (IOException) when (retries > 1)
+                    {
+                        retries--;
+                        System.Threading.Thread.Sleep(500);
+                    }
+                }
             }
         }
 
