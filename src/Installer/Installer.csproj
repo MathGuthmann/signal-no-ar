@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <AssemblyName>Instalador_SignalNoAr</AssemblyName>
+    <RootNamespace>Installer</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="payload.zip" />
+    <EmbeddedResource Include="app.ico" />
+    <EmbeddedResource Include="logo.png" />
+    <EmbeddedResource Include="emblem.png" />
+  </ItemGroup>
+
+</Project>

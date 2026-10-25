@@ -1,0 +1,23 @@
+# Build & Output directories
+bin/
+obj/
+staging/
+dist/**/*.exe
+dist/*.exe
+*.exe
+dist/*.pdb
+dist/*.zip
+src/Installer/payload.zip
+
+# Visual Studio & IDE files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Temporary scripts & caches
+*.log
+test_run*.ps1
+temp_media_hub_view/
+extracted_*.png

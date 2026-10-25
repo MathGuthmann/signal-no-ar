@@ -1,0 +1,51 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Publish SignalNoAr Application
+      run: |
+        cd src/SignalNoAr
+        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ../../staging
+
+    - name: Copy icon and repack payload
+      run: |
+        copy src\SignalNoAr\app.ico staging\app.ico
+        python pack_payload.py
+
+    - name: Publish Installer Executable
+      run: |
+        cd src/Installer
+        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ../../dist
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: SignalNoAr-Installer
+        path: |
+          dist/Instalador_SignalNoAr.exe
+          dist/Instalar_Rapido.bat
+          dist/Desinstalar.bat
