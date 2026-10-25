@@ -8,6 +8,17 @@ namespace SignalNoAr.UI
     {
         private readonly System.Windows.Forms.Timer _timer;
 
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x80; // WS_EX_TOOLWINDOW: hide from Alt+Tab
+                cp.ExStyle &= ~0x40000; // Clear WS_EX_APPWINDOW
+                return cp;
+            }
+        }
+
         public MonitorIdentifyForm(int monitorNumber, Screen screen)
         {
             FormBorderStyle = FormBorderStyle.None;

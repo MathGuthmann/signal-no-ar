@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -12,6 +14,16 @@ namespace SignalNoAr.UI
 {
     public class DisplayForm : Form
     {
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int WS_EX_APPWINDOW = 0x00040000;
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
         private readonly AppConfig _config;
         private readonly AppContext _appContext;
         private WebView2? _webView;
@@ -41,6 +53,51 @@ namespace SignalNoAr.UI
             InitializeControls();
             InitializeTopControlBar();
             InitializeWebViewAsync();
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                if (!_isWindowed)
+                {
+                    // WS_EX_TOOLWINDOW (0x80) removes window completely from Alt+Tab switcher
+                    cp.ExStyle |= WS_EX_TOOLWINDOW;
+                    // Ensure WS_EX_APPWINDOW (0x40000) is cleared
+                    cp.ExStyle &= ~WS_EX_APPWINDOW;
+                }
+                return cp;
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            ApplyAltTabVisibility();
+        }
+
+        private void ApplyAltTabVisibility()
+        {
+            try
+            {
+                if (IsHandleCreated)
+                {
+                    int exStyle = GetWindowLong(Handle, GWL_EXSTYLE);
+                    if (!_isWindowed)
+                    {
+                        exStyle |= WS_EX_TOOLWINDOW;
+                        exStyle &= ~WS_EX_APPWINDOW;
+                    }
+                    else
+                    {
+                        exStyle &= ~WS_EX_TOOLWINDOW;
+                        exStyle |= WS_EX_APPWINDOW;
+                    }
+                    SetWindowLong(Handle, GWL_EXSTYLE, exStyle);
+                }
+            }
+            catch { }
         }
 
         private void InitializeForm()
@@ -120,7 +177,7 @@ namespace SignalNoAr.UI
 
             var lblBadge = new Label
             {
-                Text = "● NO AR",
+                Text = "🔴 NO AR",
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 ForeColor = Color.FromArgb(255, 120, 0),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -166,7 +223,7 @@ namespace SignalNoAr.UI
 
             _btnInstallWebView2 = new Button
             {
-                Text = "📥 Baixar e Instalar WebView2 Runtime",
+                Text = "📦 Baixar e Instalar WebView2 Runtime",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 Size = new Size(290, 36),
                 Location = new Point((centerBox.Width - 290) / 2, 168),
@@ -184,7 +241,7 @@ namespace SignalNoAr.UI
             {
                 Text = "💡 Pressione [ESC] para sair da tela cheia • [F11] alternar janela",
                 Font = new Font("Segoe UI", 9.2f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(255, 195, 0), // Star Gold
+                ForeColor = Color.FromArgb(255, 195, 0),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Bottom,
                 Height = 32
@@ -232,7 +289,7 @@ namespace SignalNoAr.UI
 
             var btnExitFs = new Button
             {
-                Text = "✕ Sair da Tela Cheia [ESC]",
+                Text = "🚪 Sair da Tela Cheia [ESC]",
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 BackColor = Color.FromArgb(45, 38, 60),
                 ForeColor = Color.FromArgb(255, 200, 100),
@@ -258,40 +315,21 @@ namespace SignalNoAr.UI
             btnOpenSettings.FlatAppearance.BorderSize = 0;
             btnOpenSettings.Click += (s, e) =>
             {
-                SafeExitFullscreen();
+                _topControlBar.Visible = false;
                 _appContext.ShowSettings();
             };
 
-            _topControlBar.Controls.Add(btnOpenSettings);
             _topControlBar.Controls.Add(btnExitFs);
+            _topControlBar.Controls.Add(btnOpenSettings);
             Controls.Add(_topControlBar);
-            _topControlBar.BringToFront();
-
-            MouseMove += DisplayForm_MouseMove;
-        }
-
-        private void DisplayForm_MouseMove(object? sender, MouseEventArgs e)
-        {
-            if (_topControlBar == null || _isWindowed) return;
-
-            if (e.Y <= 25)
-            {
-                _topControlBar.Location = new Point((Width - _topControlBar.Width) / 2, 0);
-                _topControlBar.Visible = true;
-                _topControlBar.BringToFront();
-            }
-            else if (e.Y > 60 && _topControlBar.Visible)
-            {
-                _topControlBar.Visible = false;
-            }
         }
 
         private async void InitializeWebViewAsync()
         {
-            _retryTimer?.Stop();
-
             try
             {
+                UpdateStatus("Iniciando navegador...", "Configurando ambiente seguro em tela cheia...", isError: false);
+
                 if (_webView == null)
                 {
                     _webView = new WebView2
@@ -325,7 +363,6 @@ namespace SignalNoAr.UI
 
                 CoreWebView2Environment? env = null;
 
-                // 1. Tenta inicializar com opções otimizadas
                 try
                 {
                     var options = new CoreWebView2EnvironmentOptions(
@@ -335,14 +372,12 @@ namespace SignalNoAr.UI
                 }
                 catch
                 {
-                    // 2. Fallback sem opções customizadas
                     try
                     {
                         env = await CoreWebView2Environment.CreateAsync(null, profilePath, null);
                     }
                     catch
                     {
-                        // 3. Fallback para ambiente padrão
                         env = null;
                     }
                 }
@@ -411,7 +446,8 @@ namespace SignalNoAr.UI
                 string tempInstaller = Path.Combine(Path.GetTempPath(), "MicrosoftEdgeWebview2Setup.exe");
                 using (var client = new System.Net.Http.HttpClient())
                 {
-                    client.Timeout = TimeSpan.FromSeconds(30);
+                    client.Timeout = TimeSpan.FromSeconds(60);
+                    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SignalNoAr");
                     var bytes = await client.GetByteArrayAsync("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
                     await File.WriteAllBytesAsync(tempInstaller, bytes);
                 }
@@ -424,35 +460,23 @@ namespace SignalNoAr.UI
                     Arguments = "/silent /install",
                     UseShellExecute = true
                 };
-
                 var proc = Process.Start(psi);
                 if (proc != null)
                 {
                     await proc.WaitForExitAsync();
                 }
 
-                UpdateStatus("WebView2 instalado!", "Inicializando o sinal no ar...", isError: false);
-                await Task.Delay(1500);
-
-                if (_btnInstallWebView2 != null) _btnInstallWebView2.Visible = false;
+                UpdateStatus("Concluído!", "Reiniciando navegador do sinal...", isError: false);
+                await Task.Delay(1000);
                 InitializeWebViewAsync();
             }
             catch (Exception ex)
             {
-                UpdateStatus("Falha na instalação automática", $"Erro: {ex.Message}. Clique para abrir o download manual.", isError: true);
+                UpdateStatus("Falha na instalação automática", ex.Message, isError: true);
                 if (_btnInstallWebView2 != null)
                 {
                     _btnInstallWebView2.Enabled = true;
-                    _btnInstallWebView2.Text = "🌐 Baixar Manualmente no Navegador";
-                    _btnInstallWebView2.Click -= async (s, e) => await InstallWebView2RuntimeAsync();
-                    _btnInstallWebView2.Click += (s, e) =>
-                    {
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = "https://go.microsoft.com/fwlink/p/?LinkId=2124703",
-                            UseShellExecute = true
-                        });
-                    };
+                    _btnInstallWebView2.Text = "Tentar Instalar Novamente";
                 }
             }
         }
@@ -461,9 +485,8 @@ namespace SignalNoAr.UI
         {
             if (_webView?.CoreWebView2 != null)
             {
-                _isNavigating = true;
-                if (_btnManualRetry != null) _btnManualRetry.Visible = false;
                 UpdateStatus("Carregando sinal...", _config.Url, isError: false);
+                if (_loadingPanel != null) _loadingPanel.Visible = true;
                 _webView.CoreWebView2.Navigate(_config.Url);
             }
         }
@@ -498,6 +521,7 @@ namespace SignalNoAr.UI
                 Bounds = _targetScreen.Bounds;
                 ShowInTaskbar = false;
             }
+            ApplyAltTabVisibility();
         }
 
         public void RelocateToScreen(Screen newScreen)
@@ -678,6 +702,7 @@ namespace SignalNoAr.UI
                 _picLogo?.Dispose();
                 _topControlBar?.Dispose();
             }
+
             base.Dispose(disposing);
         }
     }
