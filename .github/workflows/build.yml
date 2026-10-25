@@ -8,6 +8,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -28,8 +31,7 @@ jobs:
 
     - name: Publish SignalNoAr Application
       run: |
-        cd src/SignalNoAr
-        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ../../staging
+        dotnet publish src/SignalNoAr/SignalNoAr.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o staging
 
     - name: Copy icon and repack payload
       run: |
@@ -38,14 +40,34 @@ jobs:
 
     - name: Publish Installer Executable
       run: |
-        cd src/Installer
-        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ../../dist
+        dotnet publish src/Installer/Installer.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o dist
+        copy dist\Instalador_SignalNoAr.exe dist\Instalador_Signal_No_Ar.exe
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: SignalNoAr-Installer
         path: |
+          dist/Instalador_Signal_No_Ar.exe
           dist/Instalador_SignalNoAr.exe
-          dist/Instalar_Rapido.bat
-          dist/Desinstalar.bat
+          version.json
+
+    - name: Publish Release to GitHub
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
+        name: Signal No Ar - Última Versão (${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }})
+        body: |
+          🚀 **Signal No Ar — Atualização Automática**
+          
+          - 📦 **Instalador Auto-suficiente**: Baixa e instala o Microsoft Edge WebView2 Evergreen Runtime automaticamente se necessário.
+          - 🔄 **Atualizações Automáticas**: O aplicativo verifica novas versões ao iniciar e atualiza sozinho em segundo plano.
+          - 🔍 **Botão Manual de Atualização**: Localizado no painel de configurações e no menu da barra de tarefas.
+          - 📡 **Leitor vMix Integrado**: Detecta transmissões ao vivo na porta 8088 e reflete status em tempo real.
+        files: |
+          dist/Instalador_Signal_No_Ar.exe
+          dist/Instalador_SignalNoAr.exe
+          version.json
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

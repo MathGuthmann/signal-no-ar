@@ -1,8 +1,9 @@
-import zipfile
 import os
+import zipfile
 
-zip_path = r"C:\Users\mathe\.gemini\antigravity-ide\scratch\SignalNoAr\src\Installer\payload.zip"
-staging_dir = r"C:\Users\mathe\.gemini\antigravity-ide\scratch\SignalNoAr\staging"
+base_dir = os.path.dirname(os.path.abspath(__file__))
+zip_path = os.path.join(base_dir, "src", "Installer", "payload.zip")
+staging_dir = os.path.join(base_dir, "staging")
 
 files_to_pack = [
     ("SignalNoAr.exe", os.path.join(staging_dir, "SignalNoAr.exe")),
@@ -14,4 +15,4 @@ with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as zf
         if os.path.exists(path):
             zf.write(path, arcname)
 
-print("Repacked payload.zip:", os.path.getsize(zip_path))
+print("Repacked payload.zip successfully:", os.path.getsize(zip_path), "bytes")

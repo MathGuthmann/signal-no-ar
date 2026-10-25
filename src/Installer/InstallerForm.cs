@@ -19,9 +19,10 @@ namespace Installer
         private CheckBox _chkLaunchSetup = null!;
         private readonly string _installDir;
         private readonly bool _isUpdate;
+        private readonly bool _isAutoMode;
         private bool _isFinished = false;
 
-        public InstallerForm()
+        public InstallerForm(string[]? args = null)
         {
             _installDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -29,9 +30,22 @@ namespace Installer
             );
 
             _isUpdate = File.Exists(Path.Combine(_installDir, "SignalNoAr.exe"));
+            _isAutoMode = args != null && Array.Exists(args, a =>
+                a.Equals("--auto", StringComparison.OrdinalIgnoreCase) ||
+                a.Equals("--silent", StringComparison.OrdinalIgnoreCase) ||
+                a.Equals("-s", StringComparison.OrdinalIgnoreCase));
 
             InitializeForm();
             BuildUI();
+
+            if (_isAutoMode)
+            {
+                Shown += async (s, e) =>
+                {
+                    await Task.Delay(400);
+                    BtnInstall_Click(null, EventArgs.Empty);
+                };
+            }
         }
 
         private void InitializeForm()
@@ -92,7 +106,7 @@ namespace Installer
             {
                 Text = _isUpdate ? "ATUALIZAÇÃO DO SIGNAL NO AR" : "INSTALADOR DO DISPLAY EM TELA CHEIA",
                 Font = new Font("Segoe UI", 11.5f, FontStyle.Bold),
-                ForeColor = _isUpdate ? Color.FromArgb(70, 220, 130) : Color.FromArgb(255, 120, 0), // Green for update, Orange for install
+                ForeColor = _isUpdate ? Color.FromArgb(70, 220, 130) : Color.FromArgb(255, 120, 0),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Top,
                 Height = 28
@@ -100,7 +114,9 @@ namespace Installer
 
             var lblHeaderSub = new Label
             {
-                Text = _isUpdate ? "Nova versão com leitor do vMix! Seus monitores e configurações serão preservados." : "Exibição contínua do sinal 'NO AR' com inicialização automática do Windows",
+                Text = _isUpdate
+                    ? "Nova versão com leitor do vMix e atualização automática! Suas configurações serão preservadas."
+                    : "Exibição contínua do sinal 'NO AR' com inicialização automática do Windows",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(185, 180, 205),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -154,7 +170,7 @@ namespace Installer
 
             Controls.Add(bottomPanel);
 
-            // Main Content Container (auto-scroll & centered on resize)
+            // Main Content Container
             var scrollPanel = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -207,19 +223,19 @@ namespace Installer
             string[] features = _isUpdate
                 ? new[]
                 {
-                    "🚀 Atualização do Sistema: Atualiza o aplicativo com integração vMix e otimizações",
-                    "🎬 Leitor Automático do vMix: Detecta transmissões ao vivo na porta 8088",
+                    "📦 Instalador Auto-suficiente: Baixa e instala o Microsoft WebView2 Runtime automaticamente",
+                    "🔄 Atualizações Automáticas: Procura e aplica novidades sozinho na inicialização",
+                    "📡 Leitor Integrado do vMix: Detecta transmissões ao vivo na porta 8088",
                     "💾 Configurações Preservadas: Seu monitor escolhido continua salvo sem reconfigurar",
-                    "⚡ Reinicialização Suave: Fecha a versão antiga e inicia a nova automaticamente",
-                    "⚙️ Controle na Bandeja: Novo painel com teste de conexão com o vMix"
+                    "⚡ Reinicialização Suave: Fecha a versão antiga e inicia a nova automaticamente"
                 }
                 : new[]
                 {
-                    "⚡ Inicialização Automática: Inicia sozinho ao ligar ou reiniciar o computador",
-                    "📺 Tela Cheia no Monitor Escolhido: Memoriza seu monitor e abre sem bordas",
-                    "🎬 Leitor Automático do vMix: Detecta transmissões ao vivo na porta 8088",
-                    "🛡️ Blindagem Contínua: Protegido contra Alt+F4 e com reconexão automática",
-                    "🚫 Oculto da Barra de Tarefas: Não ocupa espaço e não atrapalha seu trabalho"
+                    "🚀 Inicialização Automática: Inicia sozinho ao ligar ou reiniciar o computador",
+                    "🖥️ Tela Cheia no Monitor Escolhido: Memoriza seu monitor e abre sem bordas",
+                    "📦 Dependências Automáticas: Baixa e instala o Microsoft WebView2 Runtime sem complicações",
+                    "📡 Leitor Automático do vMix: Detecta transmissões ao vivo na porta 8088",
+                    "🔄 Atualizações Automáticas: Mantém o display sempre atualizado com o GitHub"
                 };
 
             var pnlFeatureList = new Panel
@@ -296,7 +312,7 @@ namespace Installer
             _lblStatus = new Label
             {
                 Text = _isUpdate
-                    ? "Versão anterior detectada. Clique em 'Atualizar Agora' para prosseguir."
+                    ? (_isAutoMode ? "Iniciando atualização automática..." : "Versão anterior detectada. Clique em 'Atualizar Agora' para prosseguir.")
                     : "Pronto para instalar. Clique em 'Instalar Agora' para prosseguir.",
                 Font = new Font("Segoe UI", 9.8f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(190, 185, 210),
@@ -332,7 +348,8 @@ namespace Installer
                 _btnInstall.Click -= BtnInstall_Click;
                 _btnInstall.Click += (s, ev) => FinishAndLaunchSetup();
 
-                await Task.Delay(1400);
+                int delayMs = _isAutoMode ? 800 : 1500;
+                await Task.Delay(delayMs);
                 if (Visible && !IsDisposed)
                 {
                     FinishAndLaunchSetup();
@@ -346,12 +363,15 @@ namespace Installer
                 _btnInstall.Enabled = true;
                 _btnCancel.Enabled = true;
 
-                MessageBox.Show(
-                    $"Ocorreu um erro durante a instalação:\n{ex.Message}",
-                    "Erro de Instalação",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
+                if (!_isAutoMode)
+                {
+                    MessageBox.Show(
+                        $"Ocorreu um erro durante a instalação:\n{ex.Message}",
+                        "Erro de Instalação",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                }
             }
         }
 
@@ -397,7 +417,7 @@ namespace Installer
             UpdateStatus(_isUpdate ? "Atualizando arquivos do aplicativo..." : "Extraindo arquivos do aplicativo...");
             ExtractPayload();
 
-            UpdateStatus("Verificando componente Microsoft WebView2...");
+            UpdateStatus("Verificando dependência Microsoft Edge WebView2...");
             EnsureWebView2Installed();
 
             UpdateStatus("Configurando inicialização automática...");
@@ -441,7 +461,6 @@ namespace Installer
             }
             catch { }
 
-            // Allow operating system to fully release file locks
             System.Threading.Thread.Sleep(600);
         }
 
@@ -465,7 +484,6 @@ namespace Installer
                     Directory.CreateDirectory(destDir);
                 }
 
-                // Retry loop in case a file is momentarily locked by antivirus or ending process
                 int retries = 4;
                 while (retries > 0)
                 {
@@ -487,18 +505,21 @@ namespace Installer
         {
             if (!IsWebView2Installed())
             {
-                UpdateStatus("Instalando componente Microsoft WebView2 Runtime...");
+                UpdateStatus("Baixando Microsoft Edge WebView2 Runtime da Microsoft...");
                 try
                 {
                     string tempInstaller = Path.Combine(Path.GetTempPath(), "MicrosoftEdgeWebview2Setup.exe");
                     using (var client = new System.Net.Http.HttpClient())
                     {
-                        client.Timeout = TimeSpan.FromSeconds(30);
+                        client.Timeout = TimeSpan.FromSeconds(60);
+                        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SignalNoArInstaller");
+
                         var task = client.GetByteArrayAsync("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
                         task.Wait();
                         File.WriteAllBytes(tempInstaller, task.Result);
                     }
 
+                    UpdateStatus("Instalando Microsoft Edge WebView2 Runtime em segundo plano...");
                     var psi = new ProcessStartInfo
                     {
                         FileName = tempInstaller,
@@ -506,7 +527,12 @@ namespace Installer
                         UseShellExecute = true
                     };
                     var proc = Process.Start(psi);
-                    proc?.WaitForExit(60000);
+                    proc?.WaitForExit(90000);
+
+                    if (IsWebView2Installed())
+                    {
+                        UpdateStatus("Componente Microsoft WebView2 Runtime instalado com sucesso!");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -519,13 +545,13 @@ namespace Installer
         {
             try
             {
-                string[] keys = new[]
+                string[] registryKeys = new[]
                 {
                     @"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-4D2A-4265-B2E0-9C0208376413}",
                     @"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-4D2A-4265-B2E0-9C0208376413}"
                 };
 
-                foreach (var subKey in keys)
+                foreach (var subKey in registryKeys)
                 {
                     using var key = Registry.LocalMachine.OpenSubKey(subKey);
                     if (key != null)
@@ -540,6 +566,23 @@ namespace Installer
                 {
                     var pv = cuKey.GetValue("pv") as string;
                     if (!string.IsNullOrEmpty(pv) && pv != "0.0.0.0") return true;
+                }
+
+                // Check directory installations
+                string[] probeDirs = new[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft", "EdgeWebView", "Application"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft", "EdgeWebView", "Application"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "EdgeWebView", "Application")
+                };
+
+                foreach (var dir in probeDirs)
+                {
+                    if (Directory.Exists(dir))
+                    {
+                        var files = Directory.GetFiles(dir, "msedgewebview2.exe", SearchOption.AllDirectories);
+                        if (files.Length > 0) return true;
+                    }
                 }
             }
             catch { }
@@ -590,7 +633,7 @@ namespace Installer
                         shortcut.Description = description;
                         if (File.Exists(iconPath))
                         {
-                            shortcut.IconLocation = iconPath + ",0";
+                            shortcut.IconLocation = $"{iconPath},0";
                         }
                         shortcut.Save();
                     }
@@ -604,19 +647,19 @@ namespace Installer
 
         private void CreateUninstallerScript()
         {
-            string uninstallBat = Path.Combine(_installDir, "Desinstalar.bat");
-            string content = @"@echo off
+            try
+            {
+                string uninstallerPath = Path.Combine(_installDir, "Desinstalar.bat");
+                string content =
+@"@echo off
 chcp 65001 >nul
-echo ===========================================
-echo       Desinstalador do Signal No Ar
-echo ===========================================
+echo ==============================================
+echo       DESINSTALADOR DO SIGNAL NO AR
+echo ==============================================
 echo.
-echo Tem certeza de que deseja desinstalar o Signal No Ar?
-echo.
-pause
-
-echo Fechando aplicativo...
-taskkill /f /im SignalNoAr.exe >nul 2>&1
+echo Fechando processos ativos do Signal No Ar...
+taskkill /F /IM SignalNoAr.exe >nul 2>&1
+timeout /t 1 /nobreak >nul
 
 echo Removendo inicialização automática...
 reg delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v ""SignalNoAr"" /f >nul 2>&1
@@ -625,18 +668,12 @@ echo Removendo atalhos...
 del ""%USERPROFILE%\Desktop\Signal No Ar.lnk"" >nul 2>&1
 del ""%APPDATA%\Microsoft\Windows\Start Menu\Programs\Signal No Ar.lnk"" >nul 2>&1
 
-echo Removendo configurações...
-rd /s /q ""%APPDATA%\SignalNoAr"" >nul 2>&1
-
-echo Removendo arquivos do programa...
-cd /d ""%LOCALAPPDATA%""
-rd /s /q ""%LOCALAPPDATA%\SignalNoAr"" >nul 2>&1
-
-echo.
 echo Desinstalação concluída com sucesso!
 pause
 ";
-            File.WriteAllText(uninstallBat, content);
+                File.WriteAllText(uninstallerPath, content, System.Text.Encoding.UTF8);
+            }
+            catch { }
         }
     }
 }

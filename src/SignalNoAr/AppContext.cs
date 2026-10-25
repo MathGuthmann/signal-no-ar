@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
@@ -58,6 +58,16 @@ namespace SignalNoAr
                     LaunchDisplay();
                 }
             }, null);
+
+            // Automatic background update check on startup
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(6000);
+                if (_config.AutoCheckUpdates)
+                {
+                    await CheckForUpdatesSilentlyAsync();
+                }
+            });
         }
 
         private void InitializeTrayIcon()
@@ -67,11 +77,13 @@ namespace SignalNoAr
             var menuSettings = new ToolStripMenuItem("⚙️ Painel de Configurações...", null, (s, e) => ShowSettings());
             menuSettings.Font = new Font(menuSettings.Font, FontStyle.Bold);
 
-            var menuIdentify = new ToolStripMenuItem("📺 Identificar Monitores", null, (s, e) => MonitorIdentifyForm.IdentifyAllScreens());
+            var menuIdentify = new ToolStripMenuItem("🖥️ Identificar Monitores", null, (s, e) => MonitorIdentifyForm.IdentifyAllScreens());
 
             _menuItemToggle = new ToolStripMenuItem("⏸️ Pausar nesta sessão", null, (s, e) => ToggleTemporaryState());
 
             var menuReload = new ToolStripMenuItem("🔄 Recarregar Sinal", null, (s, e) => ReloadSignal());
+
+            var menuUpdates = new ToolStripMenuItem("✨ Procurar Atualizações...", null, async (s, e) => await CheckForUpdatesUserInitiatedAsync());
 
             var menuExit = new ToolStripMenuItem("❌ Sair do Aplicativo", null, (s, e) => ExitApplication());
 
@@ -80,6 +92,7 @@ namespace SignalNoAr
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(_menuItemToggle);
             menu.Items.Add(menuReload);
+            menu.Items.Add(menuUpdates);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(menuExit);
 
@@ -110,7 +123,6 @@ namespace SignalNoAr
             {
                 int currentCount = Screen.AllScreens.Length;
 
-                // Refresh settings list if settings form is open
                 if (_settingsForm != null && !_settingsForm.IsDisposed)
                 {
                     _settingsForm.ReloadMonitorsList();
@@ -118,7 +130,6 @@ namespace SignalNoAr
 
                 if (_displayForm != null && !_displayForm.IsDisposed && !IsTemporarilyDisabled)
                 {
-                    // Check if target screen is still connected
                     Screen targetScreen = _config.ResolveScreen();
                     bool found = false;
                     foreach (var sc in Screen.AllScreens)
@@ -141,15 +152,6 @@ namespace SignalNoAr
                             ToolTipIcon.Warning
                         );
                     }
-                }
-                else if (currentCount > _lastScreenCount && IsTemporarilyDisabled)
-                {
-                    _notifyIcon.ShowBalloonTip(
-                        3500,
-                        "Novo Monitor Conectado",
-                        "Um novo monitor foi detectado. Abra o Painel para configurar a exibição do Signal.",
-                        ToolTipIcon.Info
-                    );
                 }
 
                 _lastScreenCount = currentCount;
@@ -182,8 +184,6 @@ namespace SignalNoAr
             try
             {
                 Screen targetScreen = _config.ResolveScreen();
-
-                // If only 1 monitor and windowed preview is requested
                 bool runWindowed = _config.WindowedPreviewOnSingleMonitor && Screen.AllScreens.Length <= 1;
 
                 if (_displayForm == null || _displayForm.IsDisposed)
@@ -371,6 +371,109 @@ namespace SignalNoAr
                 if (_displayForm != null && !_displayForm.IsDisposed)
                 {
                     _displayForm.NotifyVmixStatus(state.IsStreaming, state.IsRecording, state.ActiveInput);
+                }
+            }, null);
+        }
+
+        private async Task CheckForUpdatesSilentlyAsync()
+        {
+            try
+            {
+                var info = await UpdateService.CheckForUpdatesAsync();
+                if (info.HasUpdate && !string.IsNullOrEmpty(info.DownloadUrl))
+                {
+                    _syncContext.Post(_ =>
+                    {
+                        _notifyIcon.ShowBalloonTip(
+                            5000,
+                            "Atualização do Signal No Ar",
+                            $"Nova versão {info.LatestVersion} detectada! Atualizando o Signal No Ar automaticamente...",
+                            ToolTipIcon.Info
+                        );
+                    }, null);
+
+                    await UpdateService.DownloadAndInstallUpdateAsync(info.DownloadUrl, autoMode: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Silent update check error: {ex.Message}");
+            }
+        }
+
+        public async Task CheckForUpdatesUserInitiatedAsync()
+        {
+            _notifyIcon.ShowBalloonTip(
+                3000,
+                "Verificando Atualizações",
+                "Conectando ao GitHub para verificar novidades...",
+                ToolTipIcon.Info
+            );
+
+            var info = await UpdateService.CheckForUpdatesAsync();
+
+            _syncContext.Post(_ =>
+            {
+                if (!string.IsNullOrEmpty(info.ErrorMessage))
+                {
+                    MessageBox.Show(
+                        $"Não foi possível verificar atualizações no momento:\n{info.ErrorMessage}\n\nVerifique sua conexão com a internet.",
+                        "Verificação de Atualização",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                    return;
+                }
+
+                if (!info.HasUpdate)
+                {
+                    MessageBox.Show(
+                        $"O Signal No Ar já está na versão mais recente!\nVersão instalada: v{info.CurrentVersion}",
+                        "Signal No Ar Atualizado",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                    return;
+                }
+
+                string msg = $"Uma nova versão do Signal No Ar está disponível!\n\n" +
+                             $"Versão Instalada: v{info.CurrentVersion}\n" +
+                             $"Nova Versão: v{info.LatestVersion}\n\n" +
+                             $"Novidades:\n{info.ReleaseNotes}\n\n" +
+                             $"Deseja baixar e atualizar agora?";
+
+                var result = MessageBox.Show(msg, "Atualização Disponível", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                if (result == DialogResult.Yes)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            _syncContext.Post(__ =>
+                            {
+                                _notifyIcon.ShowBalloonTip(
+                                    5000,
+                                    "Baixando Atualização",
+                                    "O instalador está sendo baixado e iniciará em instantes...",
+                                    ToolTipIcon.Info
+                                );
+                            }, null);
+
+                            await UpdateService.DownloadAndInstallUpdateAsync(info.DownloadUrl, autoMode: false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _syncContext.Post(__ =>
+                            {
+                                MessageBox.Show(
+                                    $"Erro ao baixar atualização:\n{ex.Message}",
+                                    "Erro de Download",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Error
+                                );
+                            }, null);
+                        }
+                    });
                 }
             }, null);
         }

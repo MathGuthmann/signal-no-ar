@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Forms;
@@ -19,6 +19,7 @@ namespace SignalNoAr.Models
         public bool VmixEnabled { get; set; } = true;
         public string VmixUrl { get; set; } = "http://localhost:8088/api";
         public int VmixPollIntervalSeconds { get; set; } = 1;
+        public bool AutoCheckUpdates { get; set; } = true;
 
         private const string RunRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string AppRegistryName = "SignalNoAr";

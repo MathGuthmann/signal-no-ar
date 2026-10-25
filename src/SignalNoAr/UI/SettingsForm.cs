@@ -2,8 +2,10 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using SignalNoAr.Models;
+using SignalNoAr.Services;
 
 namespace SignalNoAr.UI
 {
@@ -23,6 +25,9 @@ namespace SignalNoAr.UI
         private TextBox _txtVmixUrl = null!;
         private Label _lblVmixStatusBadge = null!;
         private Button _btnTestVmix = null!;
+        private CheckBox _chkAutoCheckUpdates = null!;
+        private Button _btnCheckUpdates = null!;
+        private Label _lblUpdateStatus = null!;
         private Button _btnTemporaryToggle = null!;
         private Label _lblStatusBadge = null!;
         private Label _lblStatusDesc = null!;
@@ -45,10 +50,10 @@ namespace SignalNoAr.UI
         private void InitializeForm()
         {
             Text = _isWizardMode ? "Signal No Ar — Configuração do Monitor" : "Signal No Ar — Painel de Controle";
-            Size = new Size(740, 750);
+            Size = new Size(740, 800);
             MinimumSize = new Size(650, 640);
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.Sizable; // Resizable for any screen
+            FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true;
             MinimizeBox = !_isWizardMode;
             BackColor = Color.FromArgb(14, 13, 20); // Signal Deep Dark Slate
@@ -249,122 +254,121 @@ namespace SignalNoAr.UI
                     Padding = new Padding(18, 12, 18, 12)
                 };
 
+                var pnlStatusHeader = new Panel { Dock = DockStyle.Top, Height = 28 };
+
                 _lblStatusBadge = new Label
                 {
                     Text = "🟢 SINAL ATIVO",
-                    Font = new Font("Segoe UI", 11.5f, FontStyle.Bold),
+                    Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                     ForeColor = Color.FromArgb(70, 220, 130),
-                    Location = new Point(14, 12),
-                    Size = new Size(260, 24)
-                };
-
-                _lblStatusDesc = new Label
-                {
-                    Text = "Exibindo em tela cheia no monitor selecionado.",
-                    Font = new Font("Segoe UI", 9.2f, FontStyle.Regular),
-                    ForeColor = Color.FromArgb(190, 185, 210),
-                    Location = new Point(14, 38),
-                    Size = new Size(360, 28)
+                    Dock = DockStyle.Left,
+                    AutoSize = true
                 };
 
                 _btnTemporaryToggle = new Button
                 {
                     Text = "Pausar nesta sessão",
+                    Dock = DockStyle.Right,
+                    Width = 175,
                     Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                    Size = new Size(185, 38),
-                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                    Location = new Point(pnlStatusCard.Width - 195, 20),
                     BackColor = Color.FromArgb(46, 38, 64),
                     ForeColor = Color.FromArgb(255, 195, 100),
                     FlatStyle = FlatStyle.Flat,
                     Cursor = Cursors.Hand
                 };
-                _btnTemporaryToggle.FlatAppearance.BorderColor = Color.FromArgb(110, 75, 150);
+                _btnTemporaryToggle.FlatAppearance.BorderColor = Color.FromArgb(70, 60, 95);
                 _btnTemporaryToggle.Click += BtnTemporaryToggle_Click;
 
-                pnlStatusCard.Controls.Add(_btnTemporaryToggle);
+                pnlStatusHeader.Controls.Add(_btnTemporaryToggle);
+                pnlStatusHeader.Controls.Add(_lblStatusBadge);
+                pnlStatusCard.Controls.Add(pnlStatusHeader);
+
+                _lblStatusDesc = new Label
+                {
+                    Text = "Exibindo sinal contínuo no monitor escolhido.",
+                    Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                    ForeColor = Color.FromArgb(180, 175, 205),
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
                 pnlStatusCard.Controls.Add(_lblStatusDesc);
-                pnlStatusCard.Controls.Add(_lblStatusBadge);
                 _centerContainer.Controls.Add(pnlStatusCard);
 
                 currentY += 96;
             }
 
-            // 3. Monitor Section Card
+            // 3. Monitor Selection Card
             var pnlMonitorCard = new Panel
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = 155,
+                Height = 154,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
-                Padding = new Padding(18, 14, 18, 14)
+                Padding = new Padding(16, 12, 16, 12)
             };
 
-            var lblMonitorSection = new Label
+            var pnlMonitorHeader = new Panel { Dock = DockStyle.Top, Height = 28 };
+            var lblMonitorTitle = new Label
             {
-                Text = "📺 MONITOR DE EXIBIÇÃO:",
+                Text = "🖥️ MONITOR DE EXIBIÇÃO (TELA CHEIA)",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(240, 235, 255),
-                Dock = DockStyle.Top,
-                Height = 25
-            };
-            pnlMonitorCard.Controls.Add(lblMonitorSection);
-
-            var pnlMonitorControls = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 36,
-                BackColor = Color.Transparent,
-                Padding = new Padding(0, 2, 0, 0)
+                ForeColor = Color.FromArgb(245, 240, 255),
+                Dock = DockStyle.Left,
+                AutoSize = true
             };
 
             _btnIdentify = new Button
             {
-                Text = "Identificar Telas",
+                Text = "🔍 Identificar Telas",
                 Dock = DockStyle.Right,
-                Width = 160,
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                BackColor = Color.FromArgb(92, 42, 145),
-                ForeColor = Color.FromArgb(240, 220, 255),
+                Width = 150,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.FromArgb(46, 38, 64),
+                ForeColor = Color.FromArgb(255, 190, 80),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
-            _btnIdentify.FlatAppearance.BorderColor = Color.FromArgb(135, 75, 195);
+            _btnIdentify.FlatAppearance.BorderColor = Color.FromArgb(70, 60, 95);
             _btnIdentify.Click += (s, e) => MonitorIdentifyForm.IdentifyAllScreens();
-            pnlMonitorControls.Controls.Add(_btnIdentify);
+
+            pnlMonitorHeader.Controls.Add(_btnIdentify);
+            pnlMonitorHeader.Controls.Add(lblMonitorTitle);
+            pnlMonitorCard.Controls.Add(pnlMonitorHeader);
+
+            var lblMonitorSub = new Label
+            {
+                Text = "Selecione a tela onde a página 'NO AR' ficará aberta permanentemente:",
+                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(170, 165, 195),
+                Dock = DockStyle.Top,
+                Height = 24
+            };
+            pnlMonitorCard.Controls.Add(lblMonitorSub);
 
             _cbMonitors = new ComboBox
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                Height = 32,
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = Color.FromArgb(34, 30, 48),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 10.5f)
+                Font = new Font("Segoe UI", 11f),
+                FlatStyle = FlatStyle.Flat
             };
             _cbMonitors.SelectedIndexChanged += (s, e) => UpdateSelectedMonitorDetails();
-            pnlMonitorControls.Controls.Add(_cbMonitors);
-            pnlMonitorCard.Controls.Add(pnlMonitorControls);
+            pnlMonitorCard.Controls.Add(_cbMonitors);
 
             _lblSelectedMonitorDetails = new Label
             {
-                Text = "Resolução: -- x -- | Monitor Principal",
-                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(255, 170, 70), // Signal Gold/Amber
+                Text = "Resolução: Carregando...",
+                Font = new Font("Segoe UI", 9f, FontStyle.Italic),
+                ForeColor = Color.FromArgb(190, 185, 220),
                 Dock = DockStyle.Top,
-                Height = 26
+                Height = 26,
+                Padding = new Padding(0, 4, 0, 0)
             };
             pnlMonitorCard.Controls.Add(_lblSelectedMonitorDetails);
-
-            var lblMonitorHelp = new Label
-            {
-                Text = "💡 O Signal No Ar memoriza este monitor e abre diretamente nele toda vez que o PC ligar.",
-                Font = new Font("Segoe UI", 8.8f, FontStyle.Italic),
-                ForeColor = Color.FromArgb(160, 155, 180),
-                Dock = DockStyle.Top,
-                Height = 22
-            };
-            pnlMonitorCard.Controls.Add(lblMonitorHelp);
 
             _centerContainer.Controls.Add(pnlMonitorCard);
             currentY += 166;
@@ -377,18 +381,18 @@ namespace SignalNoAr.UI
                 Height = 100,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
-                Padding = new Padding(18, 14, 18, 14)
+                Padding = new Padding(16, 12, 16, 12)
             };
 
-            var lblUrlSection = new Label
+            var lblUrlTitle = new Label
             {
-                Text = "🔗 ENDEREÇO DO SINAL (URL):",
+                Text = "🌐 ENDEREÇO DO SINAL (URL DA PÁGINA)",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(240, 235, 255),
+                ForeColor = Color.FromArgb(245, 240, 255),
                 Dock = DockStyle.Top,
-                Height = 25
+                Height = 26
             };
-            pnlUrlCard.Controls.Add(lblUrlSection);
+            pnlUrlCard.Controls.Add(lblUrlTitle);
 
             _txtUrl = new TextBox
             {
@@ -397,7 +401,8 @@ namespace SignalNoAr.UI
                 BackColor = Color.FromArgb(34, 30, 48),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10.5f),
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = _config.Url
             };
             pnlUrlCard.Controls.Add(_txtUrl);
 
@@ -409,56 +414,58 @@ namespace SignalNoAr.UI
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = _isWizardMode ? 145 : 105,
+                Height = _isWizardMode ? 100 : 130,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
-                Padding = new Padding(18, 14, 18, 14)
+                Padding = new Padding(16, 12, 16, 12)
             };
 
-            var lblOptionsSection = new Label
+            var lblOptionsTitle = new Label
             {
-                Text = "⚙️ OPÇÕES DE INICIALIZAÇÃO E EXIBIÇÃO:",
+                Text = "⚙️ COMPORTAMENTO DO SISTEMA",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(240, 235, 255),
+                ForeColor = Color.FromArgb(245, 240, 255),
                 Dock = DockStyle.Top,
-                Height = 25
+                Height = 26
             };
-            pnlOptionsCard.Controls.Add(lblOptionsSection);
+            pnlOptionsCard.Controls.Add(lblOptionsTitle);
 
             _chkAutoStart = new CheckBox
             {
-                Text = "Iniciar automaticamente quando o computador ligar (Recomendado)",
-                Font = new Font("Segoe UI", 9.8f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(235, 230, 250),
+                Text = "Iniciar o Signal No Ar automaticamente ao ligar o computador (Recomendado)",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(230, 225, 245),
                 Dock = DockStyle.Top,
                 Height = 28,
-                Checked = true
+                Checked = _config.AutoStart
             };
             pnlOptionsCard.Controls.Add(_chkAutoStart);
-
-            _chkWindowedOnSingle = new CheckBox
-            {
-                Text = "Permitir teste em janela flutuante quando houver apenas 1 monitor",
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(200, 195, 220),
-                Dock = DockStyle.Top,
-                Height = 28,
-                Checked = _config.WindowedPreviewOnSingleMonitor
-            };
-            pnlOptionsCard.Controls.Add(_chkWindowedOnSingle);
 
             if (_isWizardMode)
             {
                 _chkLaunchImmediately = new CheckBox
                 {
-                    Text = "Abrir o sinal em tela cheia agora ao salvar",
-                    Font = new Font("Segoe UI", 9.8f, FontStyle.Bold),
-                    ForeColor = Color.FromArgb(255, 180, 70),
+                    Text = "Abrir em tela cheia imediatamente após salvar as configurações",
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                    ForeColor = Color.FromArgb(230, 225, 245),
                     Dock = DockStyle.Top,
                     Height = 28,
-                    Checked = Screen.AllScreens.Length > 1
+                    Checked = true
                 };
                 pnlOptionsCard.Controls.Add(_chkLaunchImmediately);
+            }
+            else
+            {
+                _chkWindowedOnSingle = new CheckBox
+                {
+                    Text = "Se houver apenas 1 monitor conectado, abrir como janela em vez de cobrir toda a tela",
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                    ForeColor = Color.FromArgb(230, 225, 245),
+                    Dock = DockStyle.Top,
+                    Height = 28,
+                    Checked = _config.WindowedPreviewOnSingleMonitor
+                };
+                pnlOptionsCard.Controls.Add(_chkWindowedOnSingle);
             }
 
             _centerContainer.Controls.Add(pnlOptionsCard);
@@ -469,55 +476,62 @@ namespace SignalNoAr.UI
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = 158,
+                Height = 150,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
-                Padding = new Padding(18, 14, 18, 14)
+                Padding = new Padding(16, 12, 16, 12)
             };
 
-            var lblVmixSection = new Label
+            var pnlVmixHeader = new Panel { Dock = DockStyle.Top, Height = 28 };
+            var lblVmixTitle = new Label
             {
-                Text = "🎬 INTEGRAÇÃO COM VMIX (DETECÇÃO DE LIVE):",
+                Text = "📡 LEITOR AUTOMÁTICO DO VMIX (AO VIVO / STANDBY)",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(240, 235, 255),
-                Dock = DockStyle.Top,
-                Height = 25
+                ForeColor = Color.FromArgb(245, 240, 255),
+                Dock = DockStyle.Left,
+                AutoSize = true
             };
-            pnlVmixCard.Controls.Add(lblVmixSection);
+
+            _btnTestVmix = new Button
+            {
+                Text = "⚡ Testar Conexão vMix",
+                Dock = DockStyle.Right,
+                Width = 175,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.FromArgb(46, 38, 64),
+                ForeColor = Color.FromArgb(120, 220, 255),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            _btnTestVmix.FlatAppearance.BorderColor = Color.FromArgb(60, 80, 120);
+            _btnTestVmix.Click += async (s, e) => await TestVmixConnectionAsync();
+
+            pnlVmixHeader.Controls.Add(_btnTestVmix);
+            pnlVmixHeader.Controls.Add(lblVmixTitle);
+            pnlVmixCard.Controls.Add(pnlVmixHeader);
 
             _chkVmixEnabled = new CheckBox
             {
-                Text = "Habilitar monitoramento do vMix (detecta transmissão ao vivo)",
-                Font = new Font("Segoe UI", 9.8f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(235, 230, 250),
+                Text = "Ativar monitoramento automático do vMix neste computador",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(230, 225, 245),
                 Dock = DockStyle.Top,
                 Height = 28,
                 Checked = _config.VmixEnabled
             };
             pnlVmixCard.Controls.Add(_chkVmixEnabled);
 
-            var pnlVmixUrlRow = new Panel
+            var pnlVmixUrlRow = new Panel { Dock = DockStyle.Top, Height = 34 };
+            var lblVmixUrlPrefix = new Label
             {
-                Dock = DockStyle.Top,
-                Height = 36,
-                BackColor = Color.Transparent,
-                Padding = new Padding(0, 2, 0, 0)
-            };
-
-            _btnTestVmix = new Button
-            {
-                Text = "Testar vMix",
-                Dock = DockStyle.Right,
-                Width = 130,
+                Text = "URL API vMix:",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                BackColor = Color.FromArgb(60, 50, 90),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                ForeColor = Color.FromArgb(190, 185, 215),
+                Dock = DockStyle.Left,
+                Width = 110,
+                TextAlign = ContentAlignment.MiddleLeft
             };
-            _btnTestVmix.FlatAppearance.BorderColor = Color.FromArgb(110, 90, 160);
-            _btnTestVmix.Click += async (s, e) => await TestVmixConnectionAsync();
-            pnlVmixUrlRow.Controls.Add(_btnTestVmix);
+            pnlVmixUrlRow.Controls.Add(lblVmixUrlPrefix);
 
             _txtVmixUrl = new TextBox
             {
@@ -545,7 +559,81 @@ namespace SignalNoAr.UI
             _centerContainer.Controls.Add(pnlVmixCard);
             currentY += pnlVmixCard.Height + 14;
 
-            // 7. Temporary Pause Notice Card
+            // 7. Updates Section Card
+            var pnlUpdatesCard = new Panel
+            {
+                Location = new Point(0, currentY),
+                Width = _centerContainer.Width,
+                Height = 145,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                BackColor = Color.FromArgb(24, 22, 34),
+                Padding = new Padding(16, 12, 16, 12)
+            };
+
+            var pnlUpdatesHeader = new Panel { Dock = DockStyle.Top, Height = 28 };
+            var lblUpdatesTitle = new Label
+            {
+                Text = "✨ ATUALIZAÇÕES DO SIGNAL NO AR",
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(245, 240, 255),
+                Dock = DockStyle.Left,
+                AutoSize = true
+            };
+            var lblVersionBadge = new Label
+            {
+                Text = $"Versão Atual: v{UpdateService.AppVersion}",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(255, 120, 0),
+                Dock = DockStyle.Right,
+                AutoSize = true
+            };
+            pnlUpdatesHeader.Controls.Add(lblVersionBadge);
+            pnlUpdatesHeader.Controls.Add(lblUpdatesTitle);
+            pnlUpdatesCard.Controls.Add(pnlUpdatesHeader);
+
+            _chkAutoCheckUpdates = new CheckBox
+            {
+                Text = "Verificar e atualizar automaticamente em segundo plano ao ligar o computador",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(230, 225, 245),
+                Dock = DockStyle.Top,
+                Height = 28,
+                Checked = _config.AutoCheckUpdates
+            };
+            pnlUpdatesCard.Controls.Add(_chkAutoCheckUpdates);
+
+            var pnlUpdateActionRow = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(0, 4, 0, 0) };
+            _btnCheckUpdates = new Button
+            {
+                Text = "🔍 Procurar Atualizações Agora",
+                Dock = DockStyle.Left,
+                Width = 230,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                BackColor = Color.FromArgb(46, 38, 64),
+                ForeColor = Color.FromArgb(255, 200, 100),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            _btnCheckUpdates.FlatAppearance.BorderColor = Color.FromArgb(80, 70, 110);
+            _btnCheckUpdates.Click += async (s, e) => await CheckUpdatesFromSettingsAsync();
+            pnlUpdateActionRow.Controls.Add(_btnCheckUpdates);
+
+            _lblUpdateStatus = new Label
+            {
+                Text = "Status: Clique para buscar novas versões lançadas no GitHub.",
+                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(170, 165, 195),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(12, 0, 0, 0)
+            };
+            pnlUpdateActionRow.Controls.Add(_lblUpdateStatus);
+            pnlUpdatesCard.Controls.Add(pnlUpdateActionRow);
+
+            _centerContainer.Controls.Add(pnlUpdatesCard);
+            currentY += pnlUpdatesCard.Height + 14;
+
+            // 8. Temporary Pause Notice Card
             var pnlNotice = new Panel
             {
                 Location = new Point(0, currentY),
@@ -558,7 +646,7 @@ namespace SignalNoAr.UI
 
             var lblNotice = new Label
             {
-                Text = "ℹ️ Se desativar temporariamente, o sinal fecha nesta sessão e reabre sozinho quando o computador reiniciar.",
+                Text = "💡 Se desativar temporariamente, o sinal fecha nesta sessão e reabre sozinho quando o computador reiniciar.",
                 Font = new Font("Segoe UI", 9f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(190, 185, 220),
                 Dock = DockStyle.Fill
@@ -595,7 +683,6 @@ namespace SignalNoAr.UI
             else
             {
                 _pnlSingleMonitorWarning.Visible = false;
-                // Auto-select secondary screen if available
                 for (int i = 0; i < screens.Length; i++)
                 {
                     if (!screens[i].Primary)
@@ -608,17 +695,19 @@ namespace SignalNoAr.UI
 
             for (int i = 0; i < screens.Length; i++)
             {
-                var screen = screens[i];
-                string label = $"Monitor {i + 1}: {screen.Bounds.Width} × {screen.Bounds.Height} " +
-                               $"({(screen.Primary ? "Principal" : "Secundário")}) - {screen.DeviceName}";
-                _cbMonitors.Items.Add(new MonitorItem(i, screen, label));
+                var s = screens[i];
+                string tag = s.Primary ? " [Principal]" : " [Secundário]";
+                string label = $"Monitor {i + 1}: {s.Bounds.Width}x{s.Bounds.Height}{tag}";
+
+                var item = new MonitorItem(i, s, label);
+                _cbMonitors.Items.Add(item);
 
                 if (!string.IsNullOrEmpty(_config.SelectedMonitorDeviceName) &&
-                    string.Equals(screen.DeviceName, _config.SelectedMonitorDeviceName, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(s.DeviceName, _config.SelectedMonitorDeviceName, StringComparison.OrdinalIgnoreCase))
                 {
                     defaultIndex = i;
                 }
-                else if (string.IsNullOrEmpty(_config.SelectedMonitorDeviceName) && _config.SelectedMonitorIndex == i)
+                else if (_config.SelectedMonitorIndex == i && string.IsNullOrEmpty(_config.SelectedMonitorDeviceName))
                 {
                     defaultIndex = i;
                 }
@@ -629,24 +718,81 @@ namespace SignalNoAr.UI
                 _cbMonitors.SelectedIndex = Math.Clamp(defaultIndex, 0, _cbMonitors.Items.Count - 1);
             }
 
-            _txtUrl.Text = string.IsNullOrEmpty(_config.Url) ? "https://signal.mathguthmann.com/no-ar" : _config.Url;
-            _chkAutoStart.Checked = _config.AutoStart;
-            if (_chkWindowedOnSingle != null)
+            if (_chkAutoCheckUpdates != null)
             {
-                _chkWindowedOnSingle.Checked = _config.WindowedPreviewOnSingleMonitor;
-            }
-            if (_chkVmixEnabled != null)
-            {
-                _chkVmixEnabled.Checked = _config.VmixEnabled;
-            }
-            if (_txtVmixUrl != null)
-            {
-                _txtVmixUrl.Text = string.IsNullOrEmpty(_config.VmixUrl) ? "http://localhost:8088/api" : _config.VmixUrl;
+                _chkAutoCheckUpdates.Checked = _config.AutoCheckUpdates;
             }
 
             UpdateSelectedMonitorDetails();
             UpdateStatusUI();
-            _ = TestVmixConnectionAsync();
+        }
+
+        private async Task CheckUpdatesFromSettingsAsync()
+        {
+            if (_btnCheckUpdates == null || _lblUpdateStatus == null) return;
+
+            _btnCheckUpdates.Enabled = false;
+            _lblUpdateStatus.Text = "Status: Conectando aos servidores do GitHub...";
+            _lblUpdateStatus.ForeColor = Color.FromArgb(255, 200, 80);
+
+            var info = await UpdateService.CheckForUpdatesAsync();
+
+            if (!string.IsNullOrEmpty(info.ErrorMessage))
+            {
+                _lblUpdateStatus.Text = $"Status: Erro ao verificar ({info.ErrorMessage})";
+                _lblUpdateStatus.ForeColor = Color.FromArgb(255, 100, 100);
+                _btnCheckUpdates.Enabled = true;
+                return;
+            }
+
+            if (!info.HasUpdate)
+            {
+                _lblUpdateStatus.Text = $"Status: ✅ Você está na versão mais recente (v{info.CurrentVersion})!";
+                _lblUpdateStatus.ForeColor = Color.FromArgb(70, 220, 130);
+                _btnCheckUpdates.Enabled = true;
+                return;
+            }
+
+            _lblUpdateStatus.Text = $"Status: ✨ Nova versão v{info.LatestVersion} disponível!";
+            _lblUpdateStatus.ForeColor = Color.FromArgb(255, 120, 0);
+
+            string msg = $"Uma nova versão do Signal No Ar está disponível!\n\n" +
+                         $"Versão Atual: v{info.CurrentVersion}\n" +
+                         $"Nova Versão: v{info.LatestVersion}\n\n" +
+                         $"Novidades:\n{info.ReleaseNotes}\n\n" +
+                         $"Deseja baixar e atualizar agora?";
+
+            var result = MessageBox.Show(msg, "Nova Versão Encontrada", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+            if (result == DialogResult.Yes)
+            {
+                _lblUpdateStatus.Text = "Status: ⬇️ Baixando atualização...";
+                _lblUpdateStatus.ForeColor = Color.FromArgb(70, 220, 130);
+
+                try
+                {
+                    await UpdateService.DownloadAndInstallUpdateAsync(info.DownloadUrl, autoMode: false, progress =>
+                    {
+                        if (InvokeRequired)
+                        {
+                            Invoke(new Action(() => _lblUpdateStatus.Text = $"Status: ⬇️ Baixando atualização... {progress}%"));
+                        }
+                        else
+                        {
+                            _lblUpdateStatus.Text = $"Status: ⬇️ Baixando atualização... {progress}%";
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _lblUpdateStatus.Text = $"Status: Erro no download: {ex.Message}";
+                    _lblUpdateStatus.ForeColor = Color.FromArgb(255, 100, 100);
+                    _btnCheckUpdates.Enabled = true;
+                }
+            }
+            else
+            {
+                _btnCheckUpdates.Enabled = true;
+            }
         }
 
         private async Task TestVmixConnectionAsync()
@@ -698,7 +844,7 @@ namespace SignalNoAr.UI
             bool isTemporarilyDisabled = _appContext.IsTemporarilyDisabled;
             if (isTemporarilyDisabled)
             {
-                _lblStatusBadge.Text = "🟠 DESATIVADO (TEMPORÁRIO)";
+                _lblStatusBadge.Text = "🟡 DESATIVADO (TEMPORÁRIO)";
                 _lblStatusBadge.ForeColor = Color.FromArgb(255, 160, 40);
                 _lblStatusDesc.Text = "Pausado nesta sessão. Voltará a abrir ao reiniciar o computador.";
                 _btnTemporaryToggle.Text = "Reativar Agora";
@@ -762,6 +908,11 @@ namespace SignalNoAr.UI
             {
                 _config.VmixUrl = _txtVmixUrl.Text.Trim();
             }
+            if (_chkAutoCheckUpdates != null)
+            {
+                _config.AutoCheckUpdates = _chkAutoCheckUpdates.Checked;
+            }
+
             _config.IsConfigured = true;
 
             _config.Save();
