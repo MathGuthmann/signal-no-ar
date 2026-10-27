@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -20,7 +20,8 @@ namespace SignalNoAr.Services
 
     public static class UpdateService
     {
-        public const string AppVersion = "1.2.2";
+        public const string AppVersion = "1.3.0";
+        public static string CurrentVersion => AppVersion;
         private const string VersionFeedUrl = "https://raw.githubusercontent.com/MathGuthmann/signal-no-ar/main/version.json";
         private static readonly HttpClient _httpClient = new HttpClient
         {

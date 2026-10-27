@@ -16,25 +16,49 @@ namespace SignalNoAr.UI
         private readonly bool _isWizardMode;
 
         private Panel _centerContainer = null!;
+
+        // Display 1 (No Ar)
         private ComboBox _cbMonitors = null!;
         private TextBox _txtUrl = null!;
+        private Label _lblSelectedMonitorDetails = null!;
+
+        // Display 2 (Palco / Retorno - Multi-Monitor)
+        private CheckBox _chkSecondDisplayEnabled = null!;
+        private ComboBox _cbSecondDisplayMonitors = null!;
+        private TextBox _txtSecondDisplayUrl = null!;
+        private Label _lblSecondDisplayMonitorDetails = null!;
+
+        // System Options & Power
         private CheckBox _chkAutoStart = null!;
+        private CheckBox _chkPreventSleep = null!;
         private CheckBox _chkLaunchImmediately = null!;
         private CheckBox _chkWindowedOnSingle = null!;
+
+        // vMix
         private CheckBox _chkVmixEnabled = null!;
         private TextBox _txtVmixUrl = null!;
         private Label _lblVmixStatusBadge = null!;
         private Button _btnTestVmix = null!;
+
+        // Holyrics
+        private CheckBox _chkHolyricsEnabled = null!;
+        private TextBox _txtHolyricsUrl = null!;
+        private TextBox _txtHolyricsToken = null!;
+        private Label _lblHolyricsStatusBadge = null!;
+        private Button _btnTestHolyrics = null!;
+
+        // Updates
         private CheckBox _chkAutoCheckUpdates = null!;
         private Button _btnCheckUpdates = null!;
         private Label _lblUpdateStatus = null!;
+
+        // Session controls
         private Button _btnTemporaryToggle = null!;
         private Label _lblStatusBadge = null!;
         private Label _lblStatusDesc = null!;
         private Button _btnApply = null!;
         private Button _btnIdentify = null!;
         private Panel _pnlSingleMonitorWarning = null!;
-        private Label _lblSelectedMonitorDetails = null!;
 
         public SettingsForm(AppConfig config, AppContext appContext, bool isWizardMode = false)
         {
@@ -50,8 +74,8 @@ namespace SignalNoAr.UI
         private void InitializeForm()
         {
             Text = _isWizardMode ? "Signal No Ar — Configuração do Monitor" : "Signal No Ar — Painel de Controle";
-            Size = new Size(740, 800);
-            MinimumSize = new Size(650, 640);
+            Size = new Size(780, 840);
+            MinimumSize = new Size(680, 680);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true;
@@ -86,15 +110,15 @@ namespace SignalNoAr.UI
             var headerPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 125,
+                Height = 120,
                 BackColor = Color.FromArgb(22, 20, 32),
-                Padding = new Padding(24, 14, 24, 10)
+                Padding = new Padding(24, 12, 24, 10)
             };
 
             var picHeaderLogo = new PictureBox
             {
                 Dock = DockStyle.Top,
-                Height = 52,
+                Height = 48,
                 SizeMode = PictureBoxSizeMode.Zoom,
                 BackColor = Color.Transparent
             };
@@ -123,7 +147,7 @@ namespace SignalNoAr.UI
             {
                 Text = _isWizardMode
                     ? "Escolha o monitor onde o sinal 'NO AR' será exibido em tela cheia."
-                    : "Gerencie a exibição em tela cheia, selecione monitores ou pause temporariamente.",
+                    : "Gerencie a exibição em tela cheia, selecione monitores, integre vMix/Holyrics ou pause.",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(185, 180, 205),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -140,9 +164,9 @@ namespace SignalNoAr.UI
             var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 72,
+                Height = 68,
                 BackColor = Color.FromArgb(18, 17, 26),
-                Padding = new Padding(24, 14, 24, 14)
+                Padding = new Padding(24, 12, 24, 12)
             };
 
             _btnApply = new Button
@@ -187,11 +211,11 @@ namespace SignalNoAr.UI
             };
             Controls.Add(scrollPanel);
 
-            // Centered Card Container (auto-centers on large/wide screens)
+            // Centered Card Container
             _centerContainer = new Panel
             {
                 Location = new Point(20, 10),
-                Width = Math.Max(580, scrollPanel.ClientSize.Width - 40),
+                Width = Math.Max(600, scrollPanel.ClientSize.Width - 40),
                 BackColor = Color.Transparent
             };
             scrollPanel.Controls.Add(_centerContainer);
@@ -199,7 +223,7 @@ namespace SignalNoAr.UI
             scrollPanel.Resize += (s, e) =>
             {
                 int availableWidth = scrollPanel.ClientSize.Width - 40;
-                int targetWidth = Math.Min(820, Math.Max(580, availableWidth));
+                int targetWidth = Math.Min(840, Math.Max(600, availableWidth));
                 int targetX = Math.Max(10, (scrollPanel.ClientSize.Width - targetWidth) / 2);
                 _centerContainer.Width = targetWidth;
                 _centerContainer.Left = targetX;
@@ -212,9 +236,9 @@ namespace SignalNoAr.UI
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = 88,
+                Height = 84,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                BackColor = Color.FromArgb(44, 30, 18), // Dark Amber Alert
+                BackColor = Color.FromArgb(44, 30, 18),
                 Padding = new Padding(16, 10, 16, 10),
                 Visible = false
             };
@@ -297,21 +321,21 @@ namespace SignalNoAr.UI
                 currentY += 96;
             }
 
-            // 3. Monitor Selection Card
-            var pnlMonitorCard = new Panel
+            // 3. Display 1 (No Ar) Card
+            var pnlDisplay1Card = new Panel
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = 154,
+                Height = 220,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
                 Padding = new Padding(16, 12, 16, 12)
             };
 
-            var pnlMonitorHeader = new Panel { Dock = DockStyle.Top, Height = 28 };
-            var lblMonitorTitle = new Label
+            var pnlDisplay1Header = new Panel { Dock = DockStyle.Top, Height = 28 };
+            var lblDisplay1Title = new Label
             {
-                Text = "🖥️ MONITOR DE EXIBIÇÃO (TELA CHEIA)",
+                Text = "🖥️ DISPLAY 1 — SINAL PRINCIPAL (NO AR)",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(245, 240, 255),
                 Dock = DockStyle.Left,
@@ -323,6 +347,7 @@ namespace SignalNoAr.UI
                 Text = "🔍 Identificar Telas",
                 Dock = DockStyle.Right,
                 Width = 150,
+                Height = 26,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 BackColor = Color.FromArgb(46, 38, 64),
                 ForeColor = Color.FromArgb(255, 190, 80),
@@ -332,19 +357,19 @@ namespace SignalNoAr.UI
             _btnIdentify.FlatAppearance.BorderColor = Color.FromArgb(70, 60, 95);
             _btnIdentify.Click += (s, e) => MonitorIdentifyForm.IdentifyAllScreens();
 
-            pnlMonitorHeader.Controls.Add(_btnIdentify);
-            pnlMonitorHeader.Controls.Add(lblMonitorTitle);
-            pnlMonitorCard.Controls.Add(pnlMonitorHeader);
+            pnlDisplay1Header.Controls.Add(_btnIdentify);
+            pnlDisplay1Header.Controls.Add(lblDisplay1Title);
+            pnlDisplay1Card.Controls.Add(pnlDisplay1Header);
 
             var lblMonitorSub = new Label
             {
-                Text = "Selecione a tela onde a página 'NO AR' ficará aberta permanentemente:",
-                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(170, 165, 195),
+                Text = "Monitor de exibição em tela cheia:",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(180, 175, 205),
                 Dock = DockStyle.Top,
-                Height = 24
+                Height = 22
             };
-            pnlMonitorCard.Controls.Add(lblMonitorSub);
+            pnlDisplay1Card.Controls.Add(lblMonitorSub);
 
             _cbMonitors = new ComboBox
             {
@@ -353,68 +378,155 @@ namespace SignalNoAr.UI
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = Color.FromArgb(34, 30, 48),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 11f),
+                Font = new Font("Segoe UI", 10.5f),
                 FlatStyle = FlatStyle.Flat
             };
             _cbMonitors.SelectedIndexChanged += (s, e) => UpdateSelectedMonitorDetails();
-            pnlMonitorCard.Controls.Add(_cbMonitors);
+            pnlDisplay1Card.Controls.Add(_cbMonitors);
 
             _lblSelectedMonitorDetails = new Label
             {
                 Text = "Resolução: Carregando...",
-                Font = new Font("Segoe UI", 9f, FontStyle.Italic),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Italic),
                 ForeColor = Color.FromArgb(190, 185, 220),
                 Dock = DockStyle.Top,
-                Height = 26,
-                Padding = new Padding(0, 4, 0, 0)
+                Height = 22,
+                Padding = new Padding(0, 3, 0, 0)
             };
-            pnlMonitorCard.Controls.Add(_lblSelectedMonitorDetails);
+            pnlDisplay1Card.Controls.Add(_lblSelectedMonitorDetails);
 
-            _centerContainer.Controls.Add(pnlMonitorCard);
-            currentY += 166;
+            var lblUrlTitle = new Label
+            {
+                Text = "URL do Display 1:",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(180, 175, 205),
+                Dock = DockStyle.Top,
+                Height = 22
+            };
+            pnlDisplay1Card.Controls.Add(lblUrlTitle);
 
-            // 4. URL Section Card
-            var pnlUrlCard = new Panel
+            _txtUrl = new TextBox
+            {
+                Dock = DockStyle.Top,
+                Height = 30,
+                BackColor = Color.FromArgb(34, 30, 48),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10f),
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = _config.Url
+            };
+            pnlDisplay1Card.Controls.Add(_txtUrl);
+
+            _centerContainer.Controls.Add(pnlDisplay1Card);
+            currentY += pnlDisplay1Card.Height + 14;
+
+            // 4. Display 2 (Retorno / Palco - Multi-Monitor) Card
+            var pnlDisplay2Card = new Panel
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = 100,
+                Height = 220,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
                 Padding = new Padding(16, 12, 16, 12)
             };
 
-            var lblUrlTitle = new Label
+            var pnlDisplay2Header = new Panel { Dock = DockStyle.Top, Height = 28 };
+            var lblDisplay2Title = new Label
             {
-                Text = "🌐 ENDEREÇO DO SINAL (URL DA PÁGINA)",
+                Text = "🎤 DISPLAY 2 — RETORNO / PALCO (OPCIONAL)",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(245, 240, 255),
-                Dock = DockStyle.Top,
-                Height = 26
+                Dock = DockStyle.Left,
+                AutoSize = true
             };
-            pnlUrlCard.Controls.Add(lblUrlTitle);
+            pnlDisplay2Header.Controls.Add(lblDisplay2Title);
+            pnlDisplay2Card.Controls.Add(pnlDisplay2Header);
 
-            _txtUrl = new TextBox
+            _chkSecondDisplayEnabled = new CheckBox
+            {
+                Text = "Ativar Segunda Tela Simultânea neste computador (ex: Monitor de Palco dos músicos)",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(255, 195, 100),
+                Dock = DockStyle.Top,
+                Height = 28,
+                Checked = _config.SecondDisplayEnabled
+            };
+            _chkSecondDisplayEnabled.CheckedChanged += (s, e) =>
+            {
+                bool enabled = _chkSecondDisplayEnabled.Checked;
+                if (_cbSecondDisplayMonitors != null) _cbSecondDisplayMonitors.Enabled = enabled;
+                if (_txtSecondDisplayUrl != null) _txtSecondDisplayUrl.Enabled = enabled;
+            };
+            pnlDisplay2Card.Controls.Add(_chkSecondDisplayEnabled);
+
+            var lblSecondMonitorSub = new Label
+            {
+                Text = "Monitor para o Display 2 (Palco):",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(180, 175, 205),
+                Dock = DockStyle.Top,
+                Height = 22
+            };
+            pnlDisplay2Card.Controls.Add(lblSecondMonitorSub);
+
+            _cbSecondDisplayMonitors = new ComboBox
             {
                 Dock = DockStyle.Top,
                 Height = 32,
+                DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = Color.FromArgb(34, 30, 48),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10.5f),
-                BorderStyle = BorderStyle.FixedSingle,
-                Text = _config.Url
+                FlatStyle = FlatStyle.Flat,
+                Enabled = _config.SecondDisplayEnabled
             };
-            pnlUrlCard.Controls.Add(_txtUrl);
+            _cbSecondDisplayMonitors.SelectedIndexChanged += (s, e) => UpdateSecondMonitorDetails();
+            pnlDisplay2Card.Controls.Add(_cbSecondDisplayMonitors);
 
-            _centerContainer.Controls.Add(pnlUrlCard);
-            currentY += 112;
+            _lblSecondDisplayMonitorDetails = new Label
+            {
+                Text = "Resolução: Carregando...",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Italic),
+                ForeColor = Color.FromArgb(190, 185, 220),
+                Dock = DockStyle.Top,
+                Height = 22,
+                Padding = new Padding(0, 3, 0, 0)
+            };
+            pnlDisplay2Card.Controls.Add(_lblSecondDisplayMonitorDetails);
+
+            var lblSecondUrlTitle = new Label
+            {
+                Text = "URL do Display 2 (Palco / Retorno):",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(180, 175, 205),
+                Dock = DockStyle.Top,
+                Height = 22
+            };
+            pnlDisplay2Card.Controls.Add(lblSecondUrlTitle);
+
+            _txtSecondDisplayUrl = new TextBox
+            {
+                Dock = DockStyle.Top,
+                Height = 30,
+                BackColor = Color.FromArgb(34, 30, 48),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10f),
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = _config.SecondDisplayUrl,
+                Enabled = _config.SecondDisplayEnabled
+            };
+            pnlDisplay2Card.Controls.Add(_txtSecondDisplayUrl);
+
+            _centerContainer.Controls.Add(pnlDisplay2Card);
+            currentY += pnlDisplay2Card.Height + 14;
 
             // 5. Options & Behavior Card
             var pnlOptionsCard = new Panel
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = _isWizardMode ? 100 : 130,
+                Height = _isWizardMode ? 140 : 160,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
                 Padding = new Padding(16, 12, 16, 12)
@@ -422,7 +534,7 @@ namespace SignalNoAr.UI
 
             var lblOptionsTitle = new Label
             {
-                Text = "⚙️ COMPORTAMENTO DO SISTEMA",
+                Text = "⚙️ COMPORTAMENTO & ENERGIA (KIOSK)",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(245, 240, 255),
                 Dock = DockStyle.Top,
@@ -441,13 +553,24 @@ namespace SignalNoAr.UI
             };
             pnlOptionsCard.Controls.Add(_chkAutoStart);
 
+            _chkPreventSleep = new CheckBox
+            {
+                Text = "Impedir suspensão de tela e descanso do Windows durante a transmissão (Sleep Blocker)",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(230, 225, 245),
+                Dock = DockStyle.Top,
+                Height = 28,
+                Checked = _config.PreventSleep
+            };
+            pnlOptionsCard.Controls.Add(_chkPreventSleep);
+
             if (_isWizardMode)
             {
                 _chkLaunchImmediately = new CheckBox
                 {
-                    Text = "Abrir em tela cheia imediatamente após salvar as configurações",
-                    Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
-                    ForeColor = Color.FromArgb(230, 225, 245),
+                    Text = "Abrir o sinal em tela cheia imediatamente após salvar",
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(255, 120, 0),
                     Dock = DockStyle.Top,
                     Height = 28,
                     Checked = true
@@ -458,7 +581,7 @@ namespace SignalNoAr.UI
             {
                 _chkWindowedOnSingle = new CheckBox
                 {
-                    Text = "Se houver apenas 1 monitor conectado, abrir como janela em vez de cobrir toda a tela",
+                    Text = "Abrir em modo janela de teste quando houver apenas 1 monitor conectado",
                     Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                     ForeColor = Color.FromArgb(230, 225, 245),
                     Dock = DockStyle.Top,
@@ -476,7 +599,7 @@ namespace SignalNoAr.UI
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
-                Height = 150,
+                Height = 155,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 22, 34),
                 Padding = new Padding(16, 12, 16, 12)
@@ -485,7 +608,7 @@ namespace SignalNoAr.UI
             var pnlVmixHeader = new Panel { Dock = DockStyle.Top, Height = 28 };
             var lblVmixTitle = new Label
             {
-                Text = "📡 LEITOR AUTOMÁTICO DO VMIX (AO VIVO / STANDBY)",
+                Text = "🔴 INTEGRAÇÃO vMIX (SWITCHER AO VIVO)",
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(245, 240, 255),
                 Dock = DockStyle.Left,
@@ -494,16 +617,17 @@ namespace SignalNoAr.UI
 
             _btnTestVmix = new Button
             {
-                Text = "⚡ Testar Conexão vMix",
+                Text = "Testar Conexão vMix",
                 Dock = DockStyle.Right,
-                Width = 175,
+                Width = 150,
+                Height = 26,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 BackColor = Color.FromArgb(46, 38, 64),
-                ForeColor = Color.FromArgb(120, 220, 255),
+                ForeColor = Color.FromArgb(255, 180, 100),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
-            _btnTestVmix.FlatAppearance.BorderColor = Color.FromArgb(60, 80, 120);
+            _btnTestVmix.FlatAppearance.BorderColor = Color.FromArgb(120, 80, 50);
             _btnTestVmix.Click += async (s, e) => await TestVmixConnectionAsync();
 
             pnlVmixHeader.Controls.Add(_btnTestVmix);
@@ -512,7 +636,7 @@ namespace SignalNoAr.UI
 
             _chkVmixEnabled = new CheckBox
             {
-                Text = "Ativar monitoramento automático do vMix neste computador",
+                Text = "Monitorar status do vMix na rede local (Streaming / Gravação com latência zero)",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(230, 225, 245),
                 Dock = DockStyle.Top,
@@ -529,11 +653,11 @@ namespace SignalNoAr.UI
             var pnlVmixUrlRow = new Panel { Dock = DockStyle.Top, Height = 34 };
             var lblVmixUrlPrefix = new Label
             {
-                Text = "URL API vMix:",
+                Text = "URL da API do vMix:",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(190, 185, 215),
                 Dock = DockStyle.Left,
-                Width = 110,
+                Width = 140,
                 TextAlign = ContentAlignment.MiddleLeft
             };
             pnlVmixUrlRow.Controls.Add(lblVmixUrlPrefix);
@@ -564,7 +688,128 @@ namespace SignalNoAr.UI
             _centerContainer.Controls.Add(pnlVmixCard);
             currentY += pnlVmixCard.Height + 14;
 
-            // 7. Updates Section Card
+            // 7. Holyrics Integration Card
+            var pnlHolyricsCard = new Panel
+            {
+                Location = new Point(0, currentY),
+                Width = _centerContainer.Width,
+                Height = 195,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                BackColor = Color.FromArgb(24, 22, 34),
+                Padding = new Padding(16, 12, 16, 12)
+            };
+
+            var pnlHolyricsHeader = new Panel { Dock = DockStyle.Top, Height = 28 };
+            var lblHolyricsTitle = new Label
+            {
+                Text = "🎵 INTEGRAÇÃO HOLYRICS (LETRA & BÍBLIA)",
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(245, 240, 255),
+                Dock = DockStyle.Left,
+                AutoSize = true
+            };
+
+            _btnTestHolyrics = new Button
+            {
+                Text = "Testar Conexão Holyrics",
+                Dock = DockStyle.Right,
+                Width = 165,
+                Height = 26,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.FromArgb(46, 38, 64),
+                ForeColor = Color.FromArgb(255, 180, 100),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            _btnTestHolyrics.FlatAppearance.BorderColor = Color.FromArgb(120, 80, 50);
+            _btnTestHolyrics.Click += async (s, e) => await TestHolyricsConnectionAsync();
+
+            pnlHolyricsHeader.Controls.Add(_btnTestHolyrics);
+            pnlHolyricsHeader.Controls.Add(lblHolyricsTitle);
+            pnlHolyricsCard.Controls.Add(pnlHolyricsHeader);
+
+            _chkHolyricsEnabled = new CheckBox
+            {
+                Text = "Ativar leitura local do Holyrics na rede local (latência zero para palco e estúdio)",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(230, 225, 245),
+                Dock = DockStyle.Top,
+                Height = 28,
+                Checked = _config.HolyricsEnabled
+            };
+            _chkHolyricsEnabled.CheckedChanged += (s, e) =>
+            {
+                bool enabled = _chkHolyricsEnabled.Checked;
+                if (_txtHolyricsUrl != null) _txtHolyricsUrl.Enabled = enabled;
+                if (_txtHolyricsToken != null) _txtHolyricsToken.Enabled = enabled;
+                if (_btnTestHolyrics != null) _btnTestHolyrics.Enabled = enabled;
+            };
+            pnlHolyricsCard.Controls.Add(_chkHolyricsEnabled);
+
+            var pnlHolyricsUrlRow = new Panel { Dock = DockStyle.Top, Height = 34 };
+            var lblHolyricsUrlPrefix = new Label
+            {
+                Text = "URL / IP Holyrics:",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(190, 185, 215),
+                Dock = DockStyle.Left,
+                Width = 140,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            pnlHolyricsUrlRow.Controls.Add(lblHolyricsUrlPrefix);
+
+            _txtHolyricsUrl = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Height = 32,
+                BackColor = Color.FromArgb(34, 30, 48),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10.5f),
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = _config.HolyricsUrl
+            };
+            pnlHolyricsUrlRow.Controls.Add(_txtHolyricsUrl);
+            pnlHolyricsCard.Controls.Add(pnlHolyricsUrlRow);
+
+            var pnlHolyricsTokenRow = new Panel { Dock = DockStyle.Top, Height = 34 };
+            var lblHolyricsTokenPrefix = new Label
+            {
+                Text = "Token API (Opcional):",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(190, 185, 215),
+                Dock = DockStyle.Left,
+                Width = 140,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            pnlHolyricsTokenRow.Controls.Add(lblHolyricsTokenPrefix);
+
+            _txtHolyricsToken = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Height = 32,
+                BackColor = Color.FromArgb(34, 30, 48),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10.5f),
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = _config.HolyricsToken
+            };
+            pnlHolyricsTokenRow.Controls.Add(_txtHolyricsToken);
+            pnlHolyricsCard.Controls.Add(pnlHolyricsTokenRow);
+
+            _lblHolyricsStatusBadge = new Label
+            {
+                Text = "Status: Aguardando verificação...",
+                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(170, 165, 195),
+                Dock = DockStyle.Top,
+                Height = 26
+            };
+            pnlHolyricsCard.Controls.Add(_lblHolyricsStatusBadge);
+
+            _centerContainer.Controls.Add(pnlHolyricsCard);
+            currentY += pnlHolyricsCard.Height + 14;
+
+            // 8. Updates Section Card
             var pnlUpdatesCard = new Panel
             {
                 Location = new Point(0, currentY),
@@ -584,21 +829,29 @@ namespace SignalNoAr.UI
                 Dock = DockStyle.Left,
                 AutoSize = true
             };
-            var lblVersionBadge = new Label
+
+            _btnCheckUpdates = new Button
             {
-                Text = $"Versão Atual: v{UpdateService.AppVersion}",
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(255, 120, 0),
+                Text = "Procurar Atualizações Agora",
                 Dock = DockStyle.Right,
-                AutoSize = true
+                Width = 195,
+                Height = 26,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.FromArgb(46, 38, 64),
+                ForeColor = Color.FromArgb(100, 220, 140),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
             };
-            pnlUpdatesHeader.Controls.Add(lblVersionBadge);
+            _btnCheckUpdates.FlatAppearance.BorderColor = Color.FromArgb(50, 100, 70);
+            _btnCheckUpdates.Click += async (s, e) => await CheckUpdatesFromSettingsAsync();
+
+            pnlUpdatesHeader.Controls.Add(_btnCheckUpdates);
             pnlUpdatesHeader.Controls.Add(lblUpdatesTitle);
             pnlUpdatesCard.Controls.Add(pnlUpdatesHeader);
 
             _chkAutoCheckUpdates = new CheckBox
             {
-                Text = "Verificar e atualizar automaticamente em segundo plano ao ligar o computador",
+                Text = "Verificar e aplicar atualizações automaticamente ao iniciar o Windows (Recomendado)",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(230, 225, 245),
                 Dock = DockStyle.Top,
@@ -607,51 +860,43 @@ namespace SignalNoAr.UI
             };
             pnlUpdatesCard.Controls.Add(_chkAutoCheckUpdates);
 
-            var pnlUpdateActionRow = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(0, 4, 0, 0) };
-            _btnCheckUpdates = new Button
+            var lblCurrentVersion = new Label
             {
-                Text = "🔍 Procurar Atualizações Agora",
-                Dock = DockStyle.Left,
-                Width = 230,
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                BackColor = Color.FromArgb(46, 38, 64),
-                ForeColor = Color.FromArgb(255, 200, 100),
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Text = $"Versão Instalada: v{UpdateService.CurrentVersion}",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(180, 175, 210),
+                Dock = DockStyle.Top,
+                Height = 22
             };
-            _btnCheckUpdates.FlatAppearance.BorderColor = Color.FromArgb(80, 70, 110);
-            _btnCheckUpdates.Click += async (s, e) => await CheckUpdatesFromSettingsAsync();
-            pnlUpdateActionRow.Controls.Add(_btnCheckUpdates);
+            pnlUpdatesCard.Controls.Add(lblCurrentVersion);
 
             _lblUpdateStatus = new Label
             {
-                Text = "Status: Clique para buscar novas versões lançadas no GitHub.",
+                Text = "Status: O Signal No Ar está configurado para manter-se sempre atualizado.",
                 Font = new Font("Segoe UI", 9f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(170, 165, 195),
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(12, 0, 0, 0)
+                ForeColor = Color.FromArgb(160, 155, 185),
+                Dock = DockStyle.Top,
+                Height = 26
             };
-            pnlUpdateActionRow.Controls.Add(_lblUpdateStatus);
-            pnlUpdatesCard.Controls.Add(pnlUpdateActionRow);
+            pnlUpdatesCard.Controls.Add(_lblUpdateStatus);
 
             _centerContainer.Controls.Add(pnlUpdatesCard);
             currentY += pnlUpdatesCard.Height + 14;
 
-            // 8. Temporary Pause Notice Card
+            // 9. Temporary Pause Notice Card
             var pnlNotice = new Panel
             {
                 Location = new Point(0, currentY),
                 Width = _centerContainer.Width,
                 Height = 55,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                BackColor = Color.FromArgb(22, 20, 32),
-                Padding = new Padding(14, 10, 14, 10)
+                BackColor = Color.FromArgb(20, 18, 28),
+                Padding = new Padding(14, 8, 14, 8)
             };
 
             var lblNotice = new Label
             {
-                Text = "💡 Se desativar temporariamente, o sinal fecha nesta sessão e reabre sozinho quando o computador reiniciar.",
+                Text = "💡 Dica: Se pausar temporariamente, as telas fecham nesta sessão e reabrem sozinhas quando o computador reiniciar ou pelo menu da bandeja.",
                 Font = new Font("Segoe UI", 9f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(190, 185, 220),
                 Dock = DockStyle.Fill
@@ -660,7 +905,7 @@ namespace SignalNoAr.UI
             _centerContainer.Controls.Add(pnlNotice);
             currentY += 65;
 
-            _centerContainer.Height = currentY + 20;
+            _centerContainer.Height = currentY + 30;
         }
 
         public void ReloadMonitorsList()
@@ -677,8 +922,11 @@ namespace SignalNoAr.UI
         private void LoadConfigData()
         {
             _cbMonitors.Items.Clear();
+            _cbSecondDisplayMonitors.Items.Clear();
+
             Screen[] screens = Screen.AllScreens;
-            int defaultIndex = 0;
+            int defaultDisplay1Index = 0;
+            int defaultDisplay2Index = screens.Length > 1 ? 1 : 0;
 
             if (screens.Length <= 1)
             {
@@ -692,7 +940,7 @@ namespace SignalNoAr.UI
                 {
                     if (!screens[i].Primary)
                     {
-                        defaultIndex = i;
+                        defaultDisplay1Index = i;
                         break;
                     }
                 }
@@ -704,28 +952,51 @@ namespace SignalNoAr.UI
                 string tag = s.Primary ? " [Principal]" : " [Secundário]";
                 string label = $"Monitor {i + 1}: {s.Bounds.Width}x{s.Bounds.Height}{tag}";
 
-                var item = new MonitorItem(i, s, label);
-                _cbMonitors.Items.Add(item);
+                var item1 = new MonitorItem(i, s, label);
+                var item2 = new MonitorItem(i, s, label);
+
+                _cbMonitors.Items.Add(item1);
+                _cbSecondDisplayMonitors.Items.Add(item2);
 
                 if (!string.IsNullOrEmpty(_config.SelectedMonitorDeviceName) &&
                     string.Equals(s.DeviceName, _config.SelectedMonitorDeviceName, StringComparison.OrdinalIgnoreCase))
                 {
-                    defaultIndex = i;
+                    defaultDisplay1Index = i;
                 }
                 else if (_config.SelectedMonitorIndex == i && string.IsNullOrEmpty(_config.SelectedMonitorDeviceName))
                 {
-                    defaultIndex = i;
+                    defaultDisplay1Index = i;
+                }
+
+                if (!string.IsNullOrEmpty(_config.SecondDisplayMonitorDeviceName) &&
+                    string.Equals(s.DeviceName, _config.SecondDisplayMonitorDeviceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    defaultDisplay2Index = i;
+                }
+                else if (_config.SecondDisplayMonitorIndex == i && string.IsNullOrEmpty(_config.SecondDisplayMonitorDeviceName))
+                {
+                    defaultDisplay2Index = i;
                 }
             }
 
             if (_cbMonitors.Items.Count > 0)
             {
-                _cbMonitors.SelectedIndex = Math.Clamp(defaultIndex, 0, _cbMonitors.Items.Count - 1);
+                _cbMonitors.SelectedIndex = Math.Clamp(defaultDisplay1Index, 0, _cbMonitors.Items.Count - 1);
+            }
+
+            if (_cbSecondDisplayMonitors.Items.Count > 0)
+            {
+                _cbSecondDisplayMonitors.SelectedIndex = Math.Clamp(defaultDisplay2Index, 0, _cbSecondDisplayMonitors.Items.Count - 1);
             }
 
             if (_txtUrl != null) _txtUrl.Text = _config.Url;
+            if (_chkSecondDisplayEnabled != null) _chkSecondDisplayEnabled.Checked = _config.SecondDisplayEnabled;
+            if (_txtSecondDisplayUrl != null) _txtSecondDisplayUrl.Text = _config.SecondDisplayUrl;
+
             if (_chkAutoStart != null) _chkAutoStart.Checked = _config.AutoStart;
+            if (_chkPreventSleep != null) _chkPreventSleep.Checked = _config.PreventSleep;
             if (_chkWindowedOnSingle != null) _chkWindowedOnSingle.Checked = _config.WindowedPreviewOnSingleMonitor;
+
             if (_chkVmixEnabled != null)
             {
                 _chkVmixEnabled.Checked = _config.VmixEnabled;
@@ -733,12 +1004,24 @@ namespace SignalNoAr.UI
                 if (_btnTestVmix != null) _btnTestVmix.Enabled = _config.VmixEnabled;
             }
             if (_txtVmixUrl != null) _txtVmixUrl.Text = _config.VmixUrl;
+
+            if (_chkHolyricsEnabled != null)
+            {
+                _chkHolyricsEnabled.Checked = _config.HolyricsEnabled;
+                if (_txtHolyricsUrl != null) _txtHolyricsUrl.Enabled = _config.HolyricsEnabled;
+                if (_txtHolyricsToken != null) _txtHolyricsToken.Enabled = _config.HolyricsEnabled;
+                if (_btnTestHolyrics != null) _btnTestHolyrics.Enabled = _config.HolyricsEnabled;
+            }
+            if (_txtHolyricsUrl != null) _txtHolyricsUrl.Text = _config.HolyricsUrl;
+            if (_txtHolyricsToken != null) _txtHolyricsToken.Text = _config.HolyricsToken;
+
             if (_chkAutoCheckUpdates != null)
             {
                 _chkAutoCheckUpdates.Checked = _config.AutoCheckUpdates;
             }
 
             UpdateSelectedMonitorDetails();
+            UpdateSecondMonitorDetails();
             UpdateStatusUI();
         }
 
@@ -843,12 +1126,51 @@ namespace SignalNoAr.UI
             _btnTestVmix.Enabled = true;
         }
 
+        private async Task TestHolyricsConnectionAsync()
+        {
+            if (_lblHolyricsStatusBadge == null || _btnTestHolyrics == null) return;
+
+            _btnTestHolyrics.Enabled = false;
+            _lblHolyricsStatusBadge.Text = "Status: ⏳ Verificando servidor do Holyrics...";
+            _lblHolyricsStatusBadge.ForeColor = Color.FromArgb(255, 200, 80);
+
+            string url = _txtHolyricsUrl?.Text?.Trim() ?? _config.HolyricsUrl;
+            string token = _txtHolyricsToken?.Text?.Trim() ?? _config.HolyricsToken;
+            var state = await _appContext.HolyricsWatcher.CheckNowAsync(url, token);
+
+            if (state.IsConnected)
+            {
+                string extra = !string.IsNullOrWhiteSpace(state.CurrentSongTitle)
+                    ? $" [Música: {state.CurrentSongTitle}]"
+                    : "";
+                _lblHolyricsStatusBadge.Text = $"Status: 🟢 Holyrics CONECTADO ({url}){extra} — Servidor ativo e respondendo!";
+                _lblHolyricsStatusBadge.ForeColor = Color.FromArgb(100, 240, 140);
+            }
+            else
+            {
+                string err = !string.IsNullOrEmpty(state.ErrorMessage) ? $" ({state.ErrorMessage})" : "";
+                _lblHolyricsStatusBadge.Text = $"Status: ⚪ Holyrics não respondeu ({url}){err}";
+                _lblHolyricsStatusBadge.ForeColor = Color.FromArgb(255, 140, 140);
+            }
+
+            _btnTestHolyrics.Enabled = true;
+        }
+
         private void UpdateSelectedMonitorDetails()
         {
             if (_cbMonitors.SelectedItem is MonitorItem item && _lblSelectedMonitorDetails != null)
             {
                 string type = item.Screen.Primary ? "Monitor Principal do Windows" : "Monitor Secundário (Recomendado para NO AR)";
                 _lblSelectedMonitorDetails.Text = $"Resolução: {item.Screen.Bounds.Width} × {item.Screen.Bounds.Height} px | {type}";
+            }
+        }
+
+        private void UpdateSecondMonitorDetails()
+        {
+            if (_cbSecondDisplayMonitors.SelectedItem is MonitorItem item && _lblSecondDisplayMonitorDetails != null)
+            {
+                string type = item.Screen.Primary ? "Monitor Principal" : "Monitor Secundário (Recomendado para Palco)";
+                _lblSecondDisplayMonitorDetails.Text = $"Resolução: {item.Screen.Bounds.Width} × {item.Screen.Bounds.Height} px | {type}";
             }
         }
 
@@ -870,7 +1192,10 @@ namespace SignalNoAr.UI
             {
                 _lblStatusBadge.Text = "🟢 SINAL ATIVO";
                 _lblStatusBadge.ForeColor = Color.FromArgb(70, 220, 130);
-                _lblStatusDesc.Text = "Exibindo em tela cheia no monitor selecionado.";
+                string desc = _config.SecondDisplayEnabled
+                    ? "Exibindo sinal no Display 1 (No Ar) e Display 2 (Palco)."
+                    : "Exibindo sinal contínuo no monitor selecionado.";
+                _lblStatusDesc.Text = desc;
                 _btnTemporaryToggle.Text = "Pausar nesta sessão";
                 _btnTemporaryToggle.BackColor = Color.FromArgb(46, 38, 64);
                 _btnTemporaryToggle.ForeColor = Color.FromArgb(255, 195, 100);
@@ -892,6 +1217,7 @@ namespace SignalNoAr.UI
 
         private void BtnApply_Click(object? sender, EventArgs e)
         {
+            // Display 1
             if (_cbMonitors.SelectedItem is MonitorItem selectedItem)
             {
                 _config.SelectedMonitorIndex = selectedItem.Index;
@@ -910,11 +1236,43 @@ namespace SignalNoAr.UI
                 _config.Url = url;
             }
 
+            // Display 2 (Palco)
+            if (_chkSecondDisplayEnabled != null)
+            {
+                _config.SecondDisplayEnabled = _chkSecondDisplayEnabled.Checked;
+            }
+            if (_cbSecondDisplayMonitors.SelectedItem is MonitorItem selectedSecondItem)
+            {
+                _config.SecondDisplayMonitorIndex = selectedSecondItem.Index;
+                _config.SecondDisplayMonitorDeviceName = selectedSecondItem.Screen.DeviceName;
+                _config.SecondDisplayMonitorWidth = selectedSecondItem.Screen.Bounds.Width;
+                _config.SecondDisplayMonitorHeight = selectedSecondItem.Screen.Bounds.Height;
+            }
+            if (_txtSecondDisplayUrl != null)
+            {
+                string secUrl = _txtSecondDisplayUrl.Text.Trim();
+                if (!string.IsNullOrEmpty(secUrl))
+                {
+                    if (!secUrl.StartsWith("http://") && !secUrl.StartsWith("https://"))
+                    {
+                        secUrl = "https://" + secUrl;
+                    }
+                    _config.SecondDisplayUrl = secUrl;
+                }
+            }
+
+            // Behavior & Power
             _config.AutoStart = _chkAutoStart.Checked;
+            if (_chkPreventSleep != null)
+            {
+                _config.PreventSleep = _chkPreventSleep.Checked;
+            }
             if (_chkWindowedOnSingle != null)
             {
                 _config.WindowedPreviewOnSingleMonitor = _chkWindowedOnSingle.Checked;
             }
+
+            // vMix
             if (_chkVmixEnabled != null)
             {
                 _config.VmixEnabled = _chkVmixEnabled.Checked;
@@ -923,6 +1281,22 @@ namespace SignalNoAr.UI
             {
                 _config.VmixUrl = _txtVmixUrl.Text.Trim();
             }
+
+            // Holyrics
+            if (_chkHolyricsEnabled != null)
+            {
+                _config.HolyricsEnabled = _chkHolyricsEnabled.Checked;
+            }
+            if (_txtHolyricsUrl != null)
+            {
+                _config.HolyricsUrl = _txtHolyricsUrl.Text.Trim();
+            }
+            if (_txtHolyricsToken != null)
+            {
+                _config.HolyricsToken = _txtHolyricsToken.Text.Trim();
+            }
+
+            // Updates
             if (_chkAutoCheckUpdates != null)
             {
                 _config.AutoCheckUpdates = _chkAutoCheckUpdates.Checked;

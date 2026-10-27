@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Forms;
@@ -8,6 +8,7 @@ namespace SignalNoAr.Models
 {
     public class AppConfig
     {
+        // Primary Display (e.g. No Ar / Kiosk)
         public string Url { get; set; } = "https://signal.mathguthmann.com/no-ar";
         public string SelectedMonitorDeviceName { get; set; } = "";
         public int SelectedMonitorIndex { get; set; } = -1;
@@ -16,9 +17,30 @@ namespace SignalNoAr.Models
         public bool AutoStart { get; set; } = true;
         public bool IsConfigured { get; set; } = false;
         public bool WindowedPreviewOnSingleMonitor { get; set; } = false;
+
+        // Secondary Display (e.g. Stage Monitor / Retorno de Palco)
+        public bool SecondDisplayEnabled { get; set; } = false;
+        public string SecondDisplayUrl { get; set; } = "https://signal.mathguthmann.com/palco";
+        public string SecondDisplayMonitorDeviceName { get; set; } = "";
+        public int SecondDisplayMonitorIndex { get; set; } = -1;
+        public int SecondDisplayMonitorWidth { get; set; } = 0;
+        public int SecondDisplayMonitorHeight { get; set; } = 0;
+
+        // vMix Integration
         public bool VmixEnabled { get; set; } = true;
         public string VmixUrl { get; set; } = "http://localhost:8088/api";
         public int VmixPollIntervalSeconds { get; set; } = 1;
+
+        // Holyrics Integration
+        public bool HolyricsEnabled { get; set; } = true;
+        public string HolyricsUrl { get; set; } = "http://localhost:8091";
+        public string HolyricsToken { get; set; } = "";
+        public int HolyricsPollIntervalSeconds { get; set; } = 1;
+
+        // Power Management / Sleep Blocker
+        public bool PreventSleep { get; set; } = true;
+
+        // Auto Update
         public bool AutoCheckUpdates { get; set; } = true;
 
         private const string RunRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -122,6 +144,44 @@ namespace SignalNoAr.Models
             SelectedMonitorIndex = 0;
             SelectedMonitorDeviceName = screens[0].DeviceName;
             return screens[0];
+        }
+
+        public Screen? ResolveSecondScreen()
+        {
+            if (!SecondDisplayEnabled) return null;
+
+            Screen[] screens = Screen.AllScreens;
+            if (screens.Length <= 1) return null;
+
+            // 1. Try match by device name
+            if (!string.IsNullOrEmpty(SecondDisplayMonitorDeviceName))
+            {
+                foreach (var screen in screens)
+                {
+                    if (string.Equals(screen.DeviceName, SecondDisplayMonitorDeviceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return screen;
+                    }
+                }
+            }
+
+            // 2. Try match by index
+            if (SecondDisplayMonitorIndex >= 0 && SecondDisplayMonitorIndex < screens.Length)
+            {
+                return screens[SecondDisplayMonitorIndex];
+            }
+
+            // 3. Smart Default: pick any screen that is different from primary display
+            var primaryScreen = ResolveScreen();
+            foreach (var screen in screens)
+            {
+                if (!string.Equals(screen.DeviceName, primaryScreen.DeviceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return screen;
+                }
+            }
+
+            return null;
         }
 
         public static void SetStartupRegistration(bool enable, string? exePath = null)

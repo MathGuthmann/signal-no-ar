@@ -61,10 +61,14 @@ jobs:
         body: |
           🚀 **Signal No Ar — Atualização Automática**
           
+          - 🖥️ **Multi-Telas Simultâneas**: Suporte a Display 1 (No Ar) e Display 2 (Palco / Retorno) simultâneos no mesmo app.
+          - ⚡ **Latência Zero na Rede Local**: Comunicação em tempo real direta com as telas (< 1ms).
+          - 🎵 **Leitor Local Holyrics Integrado**: Leitura em tempo real de letras, slides, Bíblia e cronômetro.
+          - 📡 **Leitor Local vMix Integrado**: Detecção imediata de status de gravação e transmissão ao vivo na porta 8088.
+          - 💤 **Sleep Blocker**: Previne descanso de tela e suspensão do Windows durante o culto/evento.
+          - 🛡️ **Tela Offline Inteligente**: Visual escuro com reconexão automática e status dos equipamentos locais.
           - 📦 **Instalador Auto-suficiente**: Baixa e instala o Microsoft Edge WebView2 Evergreen Runtime automaticamente se necessário.
           - 🔄 **Atualizações Automáticas**: O aplicativo verifica novas versões ao iniciar e atualiza sozinho em segundo plano.
-          - 🔍 **Botão Manual de Atualização**: Localizado no painel de configurações e no menu da barra de tarefas.
-          - 📡 **Leitor vMix Integrado**: Detecta transmissões ao vivo na porta 8088 e reflete status em tempo real.
         files: |
           dist/Instalador_Signal_No_Ar.exe
           dist/Instalador_SignalNoAr.exe

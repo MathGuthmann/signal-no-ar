@@ -26,12 +26,16 @@ namespace SignalNoAr.UI
 
         private readonly AppConfig _config;
         private readonly AppContext _appContext;
+        private readonly string _targetUrl;
+        private readonly string _displayRole;
+
         private WebView2? _webView;
         private Panel? _loadingPanel;
         private Panel? _topControlBar;
         private Panel? _topHoverTrigger;
         private Label? _lblStatus;
         private Label? _lblSubStatus;
+        private Label? _lblLocalEquipmentStatus;
         private PictureBox? _picLogo;
         private Button? _btnManualRetry;
         private Button? _btnInstallWebView2;
@@ -43,12 +47,26 @@ namespace SignalNoAr.UI
         private int _countdown = 3;
         private bool _isWindowed = false;
 
-        public DisplayForm(AppConfig config, AppContext appContext, Screen targetScreen, bool runWindowed = false)
+        private bool _lastVmixStreaming = false;
+        private bool _lastVmixRecording = false;
+        private bool _lastHolyricsConnected = false;
+
+        public string DisplayRole => _displayRole;
+
+        public DisplayForm(
+            AppConfig config,
+            AppContext appContext,
+            Screen targetScreen,
+            bool runWindowed = false,
+            string? customUrl = null,
+            string displayRole = "No Ar")
         {
             _config = config;
             _appContext = appContext;
             _targetScreen = targetScreen;
             _isWindowed = runWindowed;
+            _displayRole = string.IsNullOrWhiteSpace(displayRole) ? "No Ar" : displayRole;
+            _targetUrl = string.IsNullOrWhiteSpace(customUrl) ? config.Url : customUrl.Trim();
 
             InitializeForm();
             InitializeControls();
@@ -109,7 +127,7 @@ namespace SignalNoAr.UI
                 StartPosition = FormStartPosition.CenterScreen;
                 Size = new Size(1040, 620);
                 ShowInTaskbar = true;
-                Text = "Signal No Ar — Janela de Teste / Prévia";
+                Text = $"Signal No Ar — Prévia ({_displayRole})";
             }
             else
             {
@@ -117,7 +135,7 @@ namespace SignalNoAr.UI
                 StartPosition = FormStartPosition.Manual;
                 Bounds = _targetScreen.Bounds;
                 ShowInTaskbar = false;
-                Text = "Signal No Ar — Display";
+                Text = $"Signal No Ar — {_displayRole}";
             }
 
             TopMost = false;
@@ -138,8 +156,8 @@ namespace SignalNoAr.UI
 
             var centerBox = new Panel
             {
-                Size = new Size(540, 340),
-                BackColor = Color.FromArgb(24, 22, 34)
+                Size = new Size(540, 310),
+                BackColor = Color.Transparent
             };
 
             _loadingPanel.Resize += (s, e) =>
@@ -176,9 +194,10 @@ namespace SignalNoAr.UI
                 BackColor = Color.Transparent
             };
 
+            string badgeText = _displayRole == "Palco" ? "🎤 MONITOR DE PALCO" : "🔴 NO AR";
             var lblBadge = new Label
             {
-                Text = "🔴 NO AR",
+                Text = badgeText,
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 ForeColor = Color.FromArgb(255, 120, 0),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -206,12 +225,22 @@ namespace SignalNoAr.UI
                 Height = 28
             };
 
+            _lblLocalEquipmentStatus = new Label
+            {
+                Text = "Rede Local: Aguardando verificação...",
+                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(145, 138, 175),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Top,
+                Height = 26
+            };
+
             _btnManualRetry = new Button
             {
                 Text = "Reconectar Agora",
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Size = new Size(150, 30),
-                Location = new Point((centerBox.Width - 150) / 2, 170),
+                Size = new Size(160, 32),
+                Location = new Point((centerBox.Width - 160) / 2, 196),
                 BackColor = Color.FromArgb(255, 110, 0),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -227,7 +256,7 @@ namespace SignalNoAr.UI
                 Text = "📦 Baixar e Instalar WebView2 Runtime",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 Size = new Size(290, 36),
-                Location = new Point((centerBox.Width - 290) / 2, 168),
+                Location = new Point((centerBox.Width - 290) / 2, 194),
                 BackColor = Color.FromArgb(40, 160, 80),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -240,7 +269,7 @@ namespace SignalNoAr.UI
 
             var lblEscHint = new Label
             {
-                Text = "💡 Pressione [ESC] para sair da tela cheia • [F11] alternar janela",
+                Text = "💡 [ESC] Sair da tela cheia • [F11] Janela • [F5] Recarregar",
                 Font = new Font("Segoe UI", 9.2f, FontStyle.Regular),
                 ForeColor = Color.FromArgb(255, 195, 0),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -255,11 +284,12 @@ namespace SignalNoAr.UI
                 ForeColor = Color.FromArgb(140, 130, 160),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Bottom,
-                Height = 25
+                Height = 24
             };
 
             centerBox.Controls.Add(lblMonitorInfo);
             centerBox.Controls.Add(lblEscHint);
+            centerBox.Controls.Add(_lblLocalEquipmentStatus);
             centerBox.Controls.Add(_lblSubStatus);
             centerBox.Controls.Add(_lblStatus);
             centerBox.Controls.Add(pnlBadgeContainer);
@@ -293,7 +323,7 @@ namespace SignalNoAr.UI
             _topControlBar = new Panel
             {
                 Height = 42,
-                Width = 360,
+                Width = 430,
                 BackColor = Color.FromArgb(235, 22, 20, 32),
                 Visible = false
             };
@@ -319,7 +349,7 @@ namespace SignalNoAr.UI
                 BackColor = Color.FromArgb(255, 110, 0),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Size = new Size(140, 30),
+                Size = new Size(120, 30),
                 Location = new Point(192, 6),
                 Cursor = Cursors.Hand
             };
@@ -330,8 +360,19 @@ namespace SignalNoAr.UI
                 _appContext.ShowSettings();
             };
 
+            var lblRoleBadge = new Label
+            {
+                Text = $"[{_displayRole.ToUpper()}]",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(170, 160, 210),
+                Location = new Point(320, 11),
+                AutoSize = true
+            };
+
             _topControlBar.Controls.Add(btnExitFs);
             _topControlBar.Controls.Add(btnOpenSettings);
+            _topControlBar.Controls.Add(lblRoleBadge);
+
             _topControlBar.MouseLeave += (s, e) =>
             {
                 Point clientPos = PointToClient(Cursor.Position);
@@ -365,7 +406,8 @@ namespace SignalNoAr.UI
                     _webView = new WebView2
                     {
                         Dock = DockStyle.Fill,
-                        Visible = false
+                        Visible = false,
+                        DefaultBackgroundColor = Color.FromArgb(14, 14, 20)
                     };
                     _webView.MouseMove += (s, e) =>
                     {
@@ -384,10 +426,11 @@ namespace SignalNoAr.UI
                     _topHoverTrigger?.BringToFront();
                 }
 
+                string profileFolder = _displayRole == "Palco" ? "WebViewProfile_Palco" : "WebViewProfile";
                 string profilePath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "SignalNoAr",
-                    "WebViewProfile"
+                    profileFolder
                 );
 
                 CoreWebView2Environment? env = null;
@@ -452,11 +495,13 @@ namespace SignalNoAr.UI
                 }
                 else
                 {
-                    UpdateStatus("Erro ao iniciar WebView2", ex.Message, isError: true);
-                    _retryCount++;
-                    _countdown = 5;
-                    _retryTimer?.Start();
+                    UpdateStatus("Erro ao iniciar visualizador", ex.Message, isError: true);
                 }
+
+                _retryCount++;
+                _countdown = 5;
+                if (_btnManualRetry != null) _btnManualRetry.Visible = true;
+                _retryTimer?.Start();
             }
         }
 
@@ -553,9 +598,9 @@ namespace SignalNoAr.UI
         {
             if (_webView?.CoreWebView2 != null)
             {
-                UpdateStatus("Carregando sinal...", _config.Url, isError: false);
+                UpdateStatus("Carregando sinal...", _targetUrl, isError: false);
                 if (_loadingPanel != null) _loadingPanel.Visible = true;
-                _webView.CoreWebView2.Navigate(_config.Url);
+                _webView.CoreWebView2.Navigate(_targetUrl);
             }
         }
 
@@ -622,9 +667,19 @@ namespace SignalNoAr.UI
                 if (_loadingPanel != null) _loadingPanel.Visible = false;
                 if (_webView != null) _webView.Visible = true;
 
-                // Push current vMix status immediately to newly loaded page
+                // Push current vMix and Holyrics status immediately to newly loaded page
                 var vmixState = _appContext.VmixWatcher.CurrentState;
                 NotifyVmixStatus(vmixState.IsStreaming, vmixState.IsRecording, vmixState.ActiveInput);
+
+                var holyricsState = _appContext.HolyricsWatcher.CurrentState;
+                NotifyHolyricsStatus(
+                    holyricsState.IsConnected,
+                    holyricsState.ServerUrl,
+                    holyricsState.CurrentSongTitle,
+                    holyricsState.CurrentLyrics,
+                    holyricsState.CurrentSlideIndex,
+                    holyricsState.RawDataJson
+                );
             }
             else
             {
@@ -690,6 +745,33 @@ namespace SignalNoAr.UI
             }
         }
 
+        private void UpdateEquipmentStatusPill()
+        {
+            if (_lblLocalEquipmentStatus == null || _lblLocalEquipmentStatus.IsDisposed) return;
+
+            string vmixText = _lastVmixStreaming ? "🟢 vMix: No Ar" : (_lastVmixRecording ? "🔴 vMix: Gravando" : "⚪ vMix: Pronto");
+            string holyricsText = _lastHolyricsConnected ? "🟢 Holyrics: Conectado" : "⚪ Holyrics: Offline";
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        if (_lblLocalEquipmentStatus != null && !_lblLocalEquipmentStatus.IsDisposed)
+                        {
+                            _lblLocalEquipmentStatus.Text = $"Rede Local: {vmixText}   |   {holyricsText}";
+                        }
+                    }));
+                }
+                catch { }
+            }
+            else
+            {
+                _lblLocalEquipmentStatus.Text = $"Rede Local: {vmixText}   |   {holyricsText}";
+            }
+        }
+
         private void DisplayForm_KeyDown(object? sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Escape || (e.Control && e.KeyCode == Keys.Q))
@@ -732,9 +814,17 @@ namespace SignalNoAr.UI
 
         public void NotifyVmixStatus(bool isStreaming, bool isRecording, string activeInput)
         {
+            _lastVmixStreaming = isStreaming;
+            _lastVmixRecording = isRecording;
+            UpdateEquipmentStatusPill();
+
             if (InvokeRequired)
             {
-                Invoke(new Action(() => NotifyVmixStatus(isStreaming, isRecording, activeInput)));
+                try
+                {
+                    Invoke(new Action(() => NotifyVmixStatus(isStreaming, isRecording, activeInput)));
+                }
+                catch { }
                 return;
             }
 
@@ -742,7 +832,43 @@ namespace SignalNoAr.UI
             {
                 try
                 {
-                    string script = $"window.postMessage({{ type: 'VMIX_STATUS', isStreaming: {(isStreaming ? "true" : "false")}, isRecording: {(isRecording ? "true" : "false")}, activeInput: '{activeInput}' }}, '*');";
+                    string safeInput = (activeInput ?? "").Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"window.postMessage({{ type: 'VMIX_STATUS', isStreaming: {(isStreaming ? "true" : "false")}, isRecording: {(isRecording ? "true" : "false")}, activeInput: '{safeInput}' }}, '*');";
+                    _webView.CoreWebView2.ExecuteScriptAsync(script);
+                }
+                catch { }
+            }
+        }
+
+        public void NotifyHolyricsStatus(
+            bool isConnected,
+            string url,
+            string? title = null,
+            string? lyrics = null,
+            int slideIndex = 0,
+            string? rawJson = null)
+        {
+            _lastHolyricsConnected = isConnected;
+            UpdateEquipmentStatusPill();
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    Invoke(new Action(() => NotifyHolyricsStatus(isConnected, url, title, lyrics, slideIndex, rawJson)));
+                }
+                catch { }
+                return;
+            }
+
+            if (_webView?.CoreWebView2 != null)
+            {
+                try
+                {
+                    string safeUrl = (url ?? "").Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeTitle = (title ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", " ").Replace("\r", "");
+                    string safeLyrics = (lyrics ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "");
+                    string script = $"window.postMessage({{ type: 'HOLYRICS_STATUS', isConnected: {(isConnected ? "true" : "false")}, url: '{safeUrl}', title: '{safeTitle}', lyrics: '{safeLyrics}', slideIndex: {slideIndex} }}, '*');";
                     _webView.CoreWebView2.ExecuteScriptAsync(script);
                 }
                 catch { }
@@ -771,11 +897,7 @@ namespace SignalNoAr.UI
                 _retryTimer?.Dispose();
                 _watchdogTimer?.Dispose();
                 _webView?.Dispose();
-                _picLogo?.Dispose();
-                _topControlBar?.Dispose();
-                _topHoverTrigger?.Dispose();
             }
-
             base.Dispose(disposing);
         }
     }

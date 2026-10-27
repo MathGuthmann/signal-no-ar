@@ -17,13 +17,15 @@ namespace SignalNoAr
         private readonly AppConfig _config;
         private readonly SynchronizationContext _syncContext;
         private NotifyIcon _notifyIcon = null!;
-        private DisplayForm? _displayForm;
+        private DisplayForm? _primaryDisplayForm;
+        private DisplayForm? _secondDisplayForm;
         private SettingsForm? _settingsForm;
         private ToolStripMenuItem _menuItemToggle = null!;
         private CancellationTokenSource? _pipeCts;
         private int _lastScreenCount = 0;
 
         public VmixWatcher VmixWatcher { get; private set; } = null!;
+        public HolyricsWatcher HolyricsWatcher { get; private set; } = null!;
         public bool IsTemporarilyDisabled { get; private set; } = false;
 
         public AppContext(AppConfig config)
@@ -46,6 +48,16 @@ namespace SignalNoAr
             );
             VmixWatcher.StateChanged += OnVmixStateChanged;
             VmixWatcher.Start();
+
+            // Initialize Holyrics Monitor
+            HolyricsWatcher = new HolyricsWatcher(
+                () => _config.HolyricsEnabled,
+                () => _config.HolyricsUrl,
+                () => _config.HolyricsPollIntervalSeconds,
+                () => _config.HolyricsToken
+            );
+            HolyricsWatcher.StateChanged += OnHolyricsStateChanged;
+            HolyricsWatcher.Start();
 
             // Listen to monitor plug/unplug events
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -84,53 +96,67 @@ namespace SignalNoAr
 
             _menuItemToggle = new ToolStripMenuItem("⏸️ Pausar nesta sessão", null, (s, e) => ToggleTemporaryState());
 
-            var menuReload = new ToolStripMenuItem("🔄 Recarregar Sinal", null, (s, e) => ReloadSignal());
+            var menuReload = new ToolStripMenuItem("🔄 Recarregar Telas (F5)", null, (s, e) => ReloadSignal());
 
             var menuUpdates = new ToolStripMenuItem("✨ Procurar Atualizações...", null, async (s, e) => await CheckForUpdatesUserInitiatedAsync());
 
-            var menuExit = new ToolStripMenuItem("❌ Sair do Aplicativo", null, (s, e) => ExitApplication());
+            var menuExit = new ToolStripMenuItem("❌ Fechar Signal No Ar", null, (s, e) => ExitApplication());
 
             menu.Items.Add(menuSettings);
             menu.Items.Add(menuIdentify);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(_menuItemToggle);
             menu.Items.Add(menuReload);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(menuUpdates);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(menuExit);
 
-            Icon icon = SystemIcons.Application;
+            _notifyIcon = new NotifyIcon
+            {
+                ContextMenuStrip = menu,
+                Visible = true
+            };
+
+            // Set tray icon safely
             try
             {
                 if (File.Exists(Program.IconPath))
                 {
-                    icon = new Icon(Program.IconPath);
+                    _notifyIcon.Icon = new Icon(Program.IconPath);
+                }
+                else
+                {
+                    _notifyIcon.Icon = SystemIcons.Application;
                 }
             }
-            catch { }
-
-            _notifyIcon = new NotifyIcon
+            catch
             {
-                Icon = icon,
-                ContextMenuStrip = menu,
-                Text = "Signal No Ar - Ativo",
-                Visible = true
-            };
+                _notifyIcon.Icon = SystemIcons.Application;
+            }
 
+            SetTrayText("Signal No Ar — Inicializando...");
             _notifyIcon.DoubleClick += (s, e) => ShowSettings();
         }
 
         private void SetTrayText(string text)
         {
-            try
+            if (_notifyIcon == null) return;
+            if (string.IsNullOrEmpty(text))
             {
-                if (text.Length > 63)
-                {
-                    text = text.Substring(0, 60) + "...";
-                }
+                _notifyIcon.Text = "Signal No Ar";
+                return;
+            }
+
+            // Windows has a strict 63-character limit for NotifyIcon.Text
+            if (text.Length > 63)
+            {
+                _notifyIcon.Text = text.Substring(0, 60) + "...";
+            }
+            else
+            {
                 _notifyIcon.Text = text;
             }
-            catch { }
         }
 
         private void OnDisplaySettingsChanged(object? sender, EventArgs e)
@@ -138,27 +164,19 @@ namespace SignalNoAr
             _syncContext.Post(_ =>
             {
                 int currentCount = Screen.AllScreens.Length;
-
-                if (_settingsForm != null && !_settingsForm.IsDisposed)
+                if (currentCount != _lastScreenCount)
                 {
-                    _settingsForm.ReloadMonitorsList();
-                }
-
-                if (_displayForm != null && !_displayForm.IsDisposed && !IsTemporarilyDisabled)
-                {
-                    Screen targetScreen = _config.ResolveScreen();
-                    bool found = false;
-                    foreach (var sc in Screen.AllScreens)
+                    bool foundPrimary = false;
+                    foreach (var s in Screen.AllScreens)
                     {
-                        if (string.Equals(sc.DeviceName, targetScreen.DeviceName, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(s.DeviceName, _config.SelectedMonitorDeviceName, StringComparison.OrdinalIgnoreCase))
                         {
-                            found = true;
-                            _displayForm.RelocateToScreen(sc);
+                            foundPrimary = true;
                             break;
                         }
                     }
 
-                    if (!found)
+                    if (!foundPrimary && _config.SelectedMonitorIndex >= Screen.AllScreens.Length)
                     {
                         DeactivateTemporarily();
                         _notifyIcon.ShowBalloonTip(
@@ -167,6 +185,10 @@ namespace SignalNoAr
                             "O monitor configurado para o Signal foi desconectado. O sinal foi pausado por segurança.",
                             ToolTipIcon.Warning
                         );
+                    }
+                    else
+                    {
+                        ApplyConfigurationChanges();
                     }
                 }
 
@@ -199,40 +221,84 @@ namespace SignalNoAr
 
             try
             {
-                Screen targetScreen = _config.ResolveScreen();
+                // 1. Primary Display (No Ar)
+                Screen primaryScreen = _config.ResolveScreen();
                 bool runWindowed = _config.WindowedPreviewOnSingleMonitor && Screen.AllScreens.Length <= 1;
 
-                if (_displayForm == null || _displayForm.IsDisposed)
+                if (_primaryDisplayForm == null || _primaryDisplayForm.IsDisposed)
                 {
-                    _displayForm = new DisplayForm(_config, this, targetScreen, runWindowed);
+                    _primaryDisplayForm = new DisplayForm(_config, this, primaryScreen, runWindowed, _config.Url, "No Ar");
                 }
                 else
                 {
-                    _displayForm.RelocateToScreen(targetScreen);
+                    _primaryDisplayForm.RelocateToScreen(primaryScreen);
+                }
+                _primaryDisplayForm.Show();
+
+                // 2. Secondary Display (Palco / Retorno)
+                if (_config.SecondDisplayEnabled)
+                {
+                    Screen? secondScreen = _config.ResolveSecondScreen();
+                    if (secondScreen != null)
+                    {
+                        if (_secondDisplayForm == null || _secondDisplayForm.IsDisposed)
+                        {
+                            _secondDisplayForm = new DisplayForm(_config, this, secondScreen, false, _config.SecondDisplayUrl, "Palco");
+                        }
+                        else
+                        {
+                            _secondDisplayForm.RelocateToScreen(secondScreen);
+                        }
+                        _secondDisplayForm.Show();
+                    }
+                }
+                else
+                {
+                    if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+                    {
+                        _secondDisplayForm.Close();
+                        _secondDisplayForm.Dispose();
+                        _secondDisplayForm = null;
+                    }
                 }
 
-                _displayForm.Show();
+                // 3. Sleep Blocker
+                if (_config.PreventSleep)
+                {
+                    SleepBlocker.Enable();
+                }
+                else
+                {
+                    SleepBlocker.Disable();
+                }
+
                 UpdateTrayStatus();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao iniciar tela cheia: {ex.Message}", "Signal No Ar", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Erro ao iniciar telas: {ex.Message}", "Signal No Ar", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         public void DeactivateTemporarily()
         {
             IsTemporarilyDisabled = true;
-            if (_displayForm != null && !_displayForm.IsDisposed)
+            if (_primaryDisplayForm != null && !_primaryDisplayForm.IsDisposed)
             {
-                _displayForm.Hide();
+                _primaryDisplayForm.Hide();
             }
+            if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+            {
+                _secondDisplayForm.Hide();
+            }
+
+            SleepBlocker.Disable();
             UpdateTrayStatus();
 
             _notifyIcon.ShowBalloonTip(
                 4000,
                 "Signal No Ar Pausado",
-                "O sinal foi ocultado temporariamente. Ele voltará a abrir automaticamente quando o computador reiniciar.",
+                "As telas foram ocultadas temporariamente. Elas voltarão a abrir automaticamente quando o computador reiniciar ou pelo menu da bandeja.",
                 ToolTipIcon.Info
             );
         }
@@ -266,9 +332,13 @@ namespace SignalNoAr
 
         public void ReloadSignal()
         {
-            if (_displayForm != null && !_displayForm.IsDisposed)
+            if (_primaryDisplayForm != null && !_primaryDisplayForm.IsDisposed)
             {
-                _displayForm.Reload();
+                _primaryDisplayForm.Reload();
+            }
+            if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+            {
+                _secondDisplayForm.Reload();
             }
         }
 
@@ -276,15 +346,53 @@ namespace SignalNoAr
         {
             if (!IsTemporarilyDisabled)
             {
-                Screen targetScreen = _config.ResolveScreen();
-                if (_displayForm != null && !_displayForm.IsDisposed)
+                // Primary display
+                Screen primaryScreen = _config.ResolveScreen();
+                if (_primaryDisplayForm != null && !_primaryDisplayForm.IsDisposed)
                 {
-                    _displayForm.RelocateToScreen(targetScreen);
-                    _displayForm.NavigateToUrl();
+                    _primaryDisplayForm.RelocateToScreen(primaryScreen);
+                    _primaryDisplayForm.NavigateToUrl();
                 }
                 else
                 {
                     LaunchDisplay();
+                }
+
+                // Secondary display
+                if (_config.SecondDisplayEnabled)
+                {
+                    Screen? secondScreen = _config.ResolveSecondScreen();
+                    if (secondScreen != null)
+                    {
+                        if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+                        {
+                            _secondDisplayForm.RelocateToScreen(secondScreen);
+                            _secondDisplayForm.NavigateToUrl();
+                        }
+                        else
+                        {
+                            _secondDisplayForm = new DisplayForm(_config, this, secondScreen, false, _config.SecondDisplayUrl, "Palco");
+                            _secondDisplayForm.Show();
+                        }
+                    }
+                }
+                else
+                {
+                    if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+                    {
+                        _secondDisplayForm.Close();
+                        _secondDisplayForm.Dispose();
+                        _secondDisplayForm = null;
+                    }
+                }
+
+                if (_config.PreventSleep)
+                {
+                    SleepBlocker.Enable();
+                }
+                else
+                {
+                    SleepBlocker.Disable();
                 }
             }
             UpdateTrayStatus();
@@ -312,8 +420,8 @@ namespace SignalNoAr
             }
             else
             {
-                string dev = string.IsNullOrEmpty(_config.SelectedMonitorDeviceName) ? "Display" : _config.SelectedMonitorDeviceName;
-                SetTrayText($"Signal No Ar - Ativo ({dev})");
+                string info = _config.SecondDisplayEnabled ? "Multi-Telas (No Ar + Palco)" : "Ativo";
+                SetTrayText($"Signal No Ar — {info}");
                 _menuItemToggle.Text = "⏸️ Pausar nesta sessão";
             }
         }
@@ -339,19 +447,17 @@ namespace SignalNoAr
                         using var reader = new StreamReader(server);
                         string? message = await reader.ReadLineAsync();
 
-                        if (message == "SHOW_SETTINGS" || message == "SETUP")
+                        if (message == "SHOW_SETTINGS")
                         {
-                            _syncContext.Post(_ =>
-                            {
-                                if (message == "SETUP")
-                                {
-                                    ShowSetupWizard();
-                                }
-                                else
-                                {
-                                    ShowSettings();
-                                }
-                            }, null);
+                            _syncContext.Post(_ => ShowSettings(), null);
+                        }
+                        else if (message == "SETUP")
+                        {
+                            _syncContext.Post(_ => ShowSetupWizard(), null);
+                        }
+                        else if (message == "RELOAD")
+                        {
+                            _syncContext.Post(_ => ReloadSignal(), null);
                         }
                     }
                     catch (OperationCanceledException)
@@ -381,12 +487,47 @@ namespace SignalNoAr
                 }
                 else
                 {
-                    SetTrayText("Signal No Ar — Ativo");
+                    UpdateTrayStatus();
                 }
 
-                if (_displayForm != null && !_displayForm.IsDisposed)
+                if (_primaryDisplayForm != null && !_primaryDisplayForm.IsDisposed)
                 {
-                    _displayForm.NotifyVmixStatus(state.IsStreaming, state.IsRecording, state.ActiveInput);
+                    _primaryDisplayForm.NotifyVmixStatus(state.IsStreaming, state.IsRecording, state.ActiveInput);
+                }
+
+                if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+                {
+                    _secondDisplayForm.NotifyVmixStatus(state.IsStreaming, state.IsRecording, state.ActiveInput);
+                }
+            }, null);
+        }
+
+        private void OnHolyricsStateChanged(HolyricsState state)
+        {
+            _syncContext.Post(_ =>
+            {
+                if (_primaryDisplayForm != null && !_primaryDisplayForm.IsDisposed)
+                {
+                    _primaryDisplayForm.NotifyHolyricsStatus(
+                        state.IsConnected,
+                        state.ServerUrl,
+                        state.CurrentSongTitle,
+                        state.CurrentLyrics,
+                        state.CurrentSlideIndex,
+                        state.RawDataJson
+                    );
+                }
+
+                if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+                {
+                    _secondDisplayForm.NotifyHolyricsStatus(
+                        state.IsConnected,
+                        state.ServerUrl,
+                        state.CurrentSongTitle,
+                        state.CurrentLyrics,
+                        state.CurrentSlideIndex,
+                        state.RawDataJson
+                    );
                 }
             }, null);
         }
@@ -497,14 +638,22 @@ namespace SignalNoAr
         public void ExitApplication()
         {
             Program.IsExplicitExit = true;
+            SleepBlocker.Disable();
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
             _pipeCts?.Cancel();
             VmixWatcher.Dispose();
+            HolyricsWatcher.Dispose();
 
-            if (_displayForm != null && !_displayForm.IsDisposed)
+            if (_primaryDisplayForm != null && !_primaryDisplayForm.IsDisposed)
             {
-                _displayForm.Close();
-                _displayForm.Dispose();
+                _primaryDisplayForm.Close();
+                _primaryDisplayForm.Dispose();
+            }
+
+            if (_secondDisplayForm != null && !_secondDisplayForm.IsDisposed)
+            {
+                _secondDisplayForm.Close();
+                _secondDisplayForm.Dispose();
             }
 
             if (_settingsForm != null && !_settingsForm.IsDisposed)

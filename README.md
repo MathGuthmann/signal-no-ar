@@ -44,14 +44,19 @@ Aplicativo cliente em modo Kiosk desenvolvido especificamente para o ecossistema
 
 ## 🚀 Principais Recursos
 
+- 🖥️ **Multi-Telas Simultâneas (No Ar + Palco)**: Capacidade de exibir o **Display 1 (No Ar)** no monitor do púlpito e simultaneamente o **Display 2 (Palco / Retorno)** no monitor dos músicos a partir do mesmo aplicativo.
+- ⚡ **Latência Zero na Rede Local**: Comunicação direta entre o aplicativo nativo e as páginas web via memória RAM (`window.postMessage`), garantindo atualizações instantâneas (< 1ms) sem depender de conexões com a nuvem ou delay de banco de dados.
+- 🎵 **Leitor Local do Holyrics Integrado**: Conecta diretamente ao servidor local da API do Holyrics (`http://localhost:8091`), monitorando letras, slides ativos, versículos bíblicos e cronômetro com latência zero.
+- 📡 **Leitor Automático do vMix Integrado**: Monitora a porta `8088` do vMix em tempo real (`http://localhost:8088/api`) e detecta se o streaming está **AO VIVO** ou em **Standby**.
+- 💤 **Prevenção de Suspensão de Tela (Sleep Blocker)**: Mantém os monitores de estúdio/palco e o computador permanentemente ligados durante o evento, impedindo descanso de tela e modo de suspensão do Windows via Win32 `SetThreadExecutionState`.
+- 🛡️ **Tela de Emergência / Fallback Inteligente**: Se a internet oscilar, nada de tela branca do navegador (`ERR_INTERNET_DISCONNECTED`); o Signal No Ar exibe uma interface escura elegante com reconexão automática e mostra em tempo real o status dos equipamentos locais (vMix e Holyrics 100% operacionais).
 - 📦 **Instalador Auto-suficiente**: Baixa e instala o *Microsoft Edge WebView2 Evergreen Runtime* silenciosamente da Microsoft se a máquina não o possuir.
 - 🔄 **Atualizações Automáticas na Inicialização**: Ao ligar o computador, o Signal No Ar checa o GitHub em segundo plano. Se houver versão nova, ele atualiza e reinicia suavemente sem perder suas configurações.
 - 🔍 **Botão Manual de Atualização**: Localizado no Painel de Controle e no menu do ícone da barra de tarefas (bandeja do Windows).
-- 📡 **Leitor Automático do vMix Integrado**: Monitora a porta `8088` do vMix em tempo real (`http://localhost:8088/api`) e detecta se o streaming está **AO VIVO** ou em **Standby**.
 - 🚀 **Inicialização com o Windows**: Inicia automaticamente em segundo plano ao ligar ou reiniciar o computador (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
 - 🖥️ **Tela Cheia no Monitor Escolhido**: Preenche 100% da tela do monitor selecionado sem bordas, menus ou barras de navegação.
 - 🛡️ **Blindagem contra Fechamento Acidental**: Bloqueia teclas de fechamento acidental (`Alt + F4`, `Ctrl + W`), com reinicialização automática do renderizador em caso de falha de processo.
-- 🔕 **100% Oculto da Barra de Tarefas**: O display funciona em segundo plano no monitor de destino sem criar ícone na barra de tarefas principal, evitando distrações e cliques acidentais.
+- 🔕 **100% Oculto do Alt + Tab e Barra de Tarefas**: O display funciona em segundo plano no monitor de destino sem aparecer no switcher de janelas (`Alt + Tab`), evitando que os operadores do switcher/vMix alternem acidentalmente para a tela de retorno.
 - 🔌 **Detecção de Monitores em Tempo Real (Hotplug)**: Monitora conexões e desconexões de telas (cabos HDMI/DisplayPort). Se a tela do estúdio for desligada ou desconectada, o aplicativo pausa o sinal com segurança e avisa o usuário.
 - 🚪 **Saída de Emergência [ESC]**: Ao pressionar a tecla `ESC` ou `Ctrl + Q`, o display é minimizado para a bandeja imediatamente. Ao passar o mouse no topo da tela, uma barra discreta de controle também se torna visível.
 - 🔄 **Reconexão Inteligente**: Caso o PC ligue antes do Wi-Fi/cabo de rede estar pronto, uma tela de conexão exibe a contagem regressiva ao vivo e reconecta automaticamente assim que o servidor responder.

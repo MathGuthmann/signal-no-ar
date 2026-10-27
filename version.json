@@ -1,8 +1,8 @@
 {
-  "version": "1.2.2",
+  "version": "1.3.0",
   "name": "Signal No Ar",
-  "publishedAt": "2026-10-25",
-  "releaseNotes": "Refinamentos de estabilidade: atalhos com prioridade máxima (ProcessCmdKey), barra de controle por aproximação no topo, proteção contra limites de texto na bandeja e sincronização imediata de status do vMix.",
+  "publishedAt": "2026-10-27",
+  "releaseNotes": "Grandes novidades na v1.3.0: Suporte nativo a múltiplos monitores (Display 1: No Ar + Display 2: Palco/Retorno simultâneos no mesmo app), integração local de latência zero com Holyrics (letras, slides, Bíblia e cronômetro), prevenção automática de descanso/suspensão de tela do Windows (Sleep Blocker) e tela offline inteligente com status local de vMix e Holyrics.",
   "downloadUrl": "https://github.com/MathGuthmann/signal-no-ar/releases/download/latest/Instalador_Signal_No_Ar.exe",
   "mandatory": false
 }
