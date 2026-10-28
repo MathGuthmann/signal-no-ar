@@ -4,11 +4,13 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using SignalNoAr.Models;
+using SignalNoAr.Services;
 
 namespace SignalNoAr.UI
 {
@@ -483,6 +485,15 @@ namespace SignalNoAr.UI
                     _webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
                     _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
                     _webView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+                    _webView.DefaultBackgroundColor = Color.Black;
+
+                    try
+                    {
+                        await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                            "window.__SIGNAL_DESKTOP_APP__ = true; window.__SIGNAL_VERSION__ = '" + UpdateService.CurrentVersion + "';"
+                        );
+                    }
+                    catch { }
 
                     _webView.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
                     _webView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
@@ -865,9 +876,14 @@ namespace SignalNoAr.UI
             {
                 try
                 {
-                    string safeInput = (activeInput ?? "").Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"window.postMessage({{ type: 'VMIX_STATUS', isStreaming: {(isStreaming ? "true" : "false")}, isRecording: {(isRecording ? "true" : "false")}, activeInput: '{safeInput}' }}, '*');";
-                    _webView.CoreWebView2.ExecuteScriptAsync(script);
+                    var payload = JsonSerializer.Serialize(new
+                    {
+                        type = "VMIX_STATUS",
+                        isStreaming = isStreaming,
+                        isRecording = isRecording,
+                        activeInput = activeInput ?? ""
+                    });
+                    _webView.CoreWebView2.ExecuteScriptAsync($"window.postMessage({payload}, '*');");
                 }
                 catch { }
             }
@@ -898,11 +914,16 @@ namespace SignalNoAr.UI
             {
                 try
                 {
-                    string safeUrl = (url ?? "").Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeTitle = (title ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", " ").Replace("\r", "");
-                    string safeLyrics = (lyrics ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "");
-                    string script = $"window.postMessage({{ type: 'HOLYRICS_STATUS', isConnected: {(isConnected ? "true" : "false")}, url: '{safeUrl}', title: '{safeTitle}', lyrics: '{safeLyrics}', slideIndex: {slideIndex} }}, '*');";
-                    _webView.CoreWebView2.ExecuteScriptAsync(script);
+                    var payload = JsonSerializer.Serialize(new
+                    {
+                        type = "HOLYRICS_STATUS",
+                        isConnected = isConnected,
+                        url = url ?? "",
+                        title = title ?? "",
+                        lyrics = lyrics ?? "",
+                        slideIndex = slideIndex
+                    });
+                    _webView.CoreWebView2.ExecuteScriptAsync($"window.postMessage({payload}, '*');");
                 }
                 catch { }
             }

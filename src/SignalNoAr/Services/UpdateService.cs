@@ -20,7 +20,7 @@ namespace SignalNoAr.Services
 
     public static class UpdateService
     {
-        public const string AppVersion = "1.3.1";
+        public const string AppVersion = "1.3.2";
         public static string CurrentVersion => AppVersion;
         private const string VersionFeedUrl = "https://raw.githubusercontent.com/MathGuthmann/signal-no-ar/main/version.json";
         private static readonly HttpClient _httpClient = new HttpClient
