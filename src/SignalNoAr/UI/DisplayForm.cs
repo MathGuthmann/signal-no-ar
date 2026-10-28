@@ -349,7 +349,7 @@ namespace SignalNoAr.UI
                 BackColor = Color.FromArgb(255, 110, 0),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Size = new Size(120, 30),
+                Size = new Size(110, 30),
                 Location = new Point(192, 6),
                 Cursor = Cursors.Hand
             };
@@ -360,17 +360,38 @@ namespace SignalNoAr.UI
                 _appContext.ShowSettings();
             };
 
+            bool isPalco = _displayRole.Equals("Palco", StringComparison.OrdinalIgnoreCase);
+            var btnToggleMode = new Button
+            {
+                Text = isPalco ? "🔴 Ir para No Ar" : "🎤 Ir para Palco",
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.FromArgb(46, 38, 64),
+                ForeColor = Color.FromArgb(255, 195, 100),
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(140, 30),
+                Location = new Point(310, 6),
+                Cursor = Cursors.Hand
+            };
+            btnToggleMode.FlatAppearance.BorderColor = Color.FromArgb(80, 60, 110);
+            btnToggleMode.Click += (s, e) =>
+            {
+                _topControlBar.Visible = false;
+                ToggleNoArPalcoMode();
+            };
+
             var lblRoleBadge = new Label
             {
                 Text = $"[{_displayRole.ToUpper()}]",
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(170, 160, 210),
-                Location = new Point(320, 11),
+                Location = new Point(460, 11),
                 AutoSize = true
             };
 
+            _topControlBar.Width = 560;
             _topControlBar.Controls.Add(btnExitFs);
             _topControlBar.Controls.Add(btnOpenSettings);
+            _topControlBar.Controls.Add(btnToggleMode);
             _topControlBar.Controls.Add(lblRoleBadge);
 
             _topControlBar.MouseLeave += (s, e) =>
@@ -438,7 +459,7 @@ namespace SignalNoAr.UI
                 try
                 {
                     var options = new CoreWebView2EnvironmentOptions(
-                        "--disable-background-networking --disable-sync --disable-features=TranslateUI,InterestFeedContentSuggestions --disable-extensions"
+                        "--disable-background-networking --disable-sync --disable-features=TranslateUI,InterestFeedContentSuggestions,BlockInsecurePrivateNetworkRequests --disable-extensions --allow-running-insecure-content --disable-web-security"
                     );
                     env = await CoreWebView2Environment.CreateAsync(null, profilePath, options);
                 }
@@ -635,6 +656,18 @@ namespace SignalNoAr.UI
                 ShowInTaskbar = false;
             }
             ApplyAltTabVisibility();
+        }
+
+        public void ToggleNoArPalcoMode()
+        {
+            if (_webView?.CoreWebView2 != null)
+            {
+                string currentUri = _webView.Source?.ToString() ?? _targetUrl;
+                bool isCurrentlyPalco = currentUri.Contains("/palco", StringComparison.OrdinalIgnoreCase);
+                string target = isCurrentlyPalco ? _config.Url : _config.SecondDisplayUrl;
+                UpdateStatus("Alternando modo...", target, isError: false);
+                _webView.CoreWebView2.Navigate(target);
+            }
         }
 
         public void RelocateToScreen(Screen newScreen)
